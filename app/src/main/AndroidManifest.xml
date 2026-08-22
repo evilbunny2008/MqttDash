@@ -9,8 +9,11 @@
 
     <application
         android:name=".MqttDashApplication"
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.MqttDash">
+        android:theme="@style/Theme.MqttDash"
+        android:supportsRtl="true">
 
         <activity
             android:name=".MainActivity"
