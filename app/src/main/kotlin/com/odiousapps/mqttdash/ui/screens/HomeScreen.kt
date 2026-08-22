@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -25,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -108,55 +111,35 @@ fun HomeScreen(navController: NavController) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Panels sharing a non-blank clusterName render together in one
+                            // card; panels with a blank clusterName stay as standalone tiles,
+                            // each getting its own unique bucket so they don't merge together.
+                            val clusters = LinkedHashMap<String, MutableList<Panel>>()
                             group.panels.forEach { panel ->
-                                when (panel) {
-                                    is Panel.Sensor -> {
-                                        val raw = payloads["${panel.brokerId}|${panel.topic}"]
-                                        val value = raw?.let { JsonPath.extract(it, panel.jsonPath) } ?: "--"
-                                        val alert = if (panel.idealRangeTopic.isBlank()) {
-                                            SensorAlert.NONE
-                                        } else {
-                                            val numericValue = value.toDoubleOrNull()
-                                            val idealRaw = payloads["${panel.brokerId}|${panel.idealRangeTopic}"]
-                                            val min = idealRaw?.let { JsonPath.extract(it, "min") }?.toDoubleOrNull()
-                                            val max = idealRaw?.let { JsonPath.extract(it, "max") }?.toDoubleOrNull()
-                                            when {
-                                                numericValue == null -> SensorAlert.NONE
-                                                min != null && numericValue < min -> SensorAlert.BELOW_MIN
-                                                max != null && numericValue > max -> SensorAlert.ABOVE_MAX
-                                                else -> SensorAlert.NONE
-                                            }
-                                        }
-                                        SensorTile(
-                                            modifier = Modifier.width(160.dp),
-                                            icon = panel.icon,
-                                            value = value,
-                                            unit = panel.unit,
-                                            alert = alert,
-                                            label = panel.label,
-                                            onClick = { navController.navigate("group/${group.id}/panel/${panel.id}") }
-                                        )
-                                    }
+                                val key = panel.clusterName.ifBlank { "__single__${panel.id}" }
+                                clusters.getOrPut(key) { mutableListOf() }.add(panel)
+                            }
 
-                                    is Panel.Toggle -> {
-                                        val statePayload = payloads["${panel.brokerId}|${panel.stateTopic}"]
-                                        val resolvedState = statePayload?.let { JsonPath.extract(it, panel.stateJsonPath) }
-                                        val isOn = resolvedState?.equals(panel.onPayload, ignoreCase = true) ?: false
-                                        ToggleTile(
-                                            modifier = Modifier.width(160.dp),
-                                            icon = panel.icon,
-                                            label = panel.label,
-                                            isOn = isOn,
-                                            onToggle = {
-                                                app.connectionManager.publish(
-                                                    panel.brokerId,
-                                                    panel.commandTopic,
-                                                    if (isOn) panel.offPayload else panel.onPayload
-                                                )
-                                            },
-                                            onLongPress = { navController.navigate("group/${group.id}/panel/${panel.id}") }
-                                        )
-                                    }
+                            clusters.values.forEach { panelsInCluster ->
+                                val name = panelsInCluster.first().clusterName
+                                if (name.isBlank()) {
+                                    PanelTile(
+                                        panel = panelsInCluster.first(),
+                                        groupId = group.id,
+                                        payloads = payloads,
+                                        app = app,
+                                        navController = navController,
+                                        modifier = Modifier.width(160.dp)
+                                    )
+                                } else {
+                                    ClusterCard(
+                                        name = name,
+                                        panels = panelsInCluster,
+                                        groupId = group.id,
+                                        payloads = payloads,
+                                        app = app,
+                                        navController = navController
+                                    )
                                 }
                             }
                         }
@@ -179,5 +162,102 @@ fun HomeScreen(navController: NavController) {
             },
             dismissButton = { TextButton(onClick = { pendingGroupDelete = null }) { Text("Cancel") } }
         )
+    }
+}
+
+/** Renders a bordered card containing every panel in [panels] (2 per row), with [name] as a caption below. */
+@Composable
+private fun ClusterCard(
+    name: String,
+    panels: List<Panel>,
+    groupId: String,
+    payloads: Map<String, String>,
+    app: MqttDashApplication,
+    navController: NavController
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier.widthIn(max = 340.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            panels.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { panel ->
+                        PanelTile(
+                            panel = panel,
+                            groupId = groupId,
+                            payloads = payloads,
+                            app = app,
+                            navController = navController,
+                            modifier = Modifier.width(150.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Text(name, style = MaterialTheme.typography.titleSmall)
+        }
+    }
+}
+
+/** Renders a single Sensor or Toggle tile, wired up to its live payload and edit/toggle actions. */
+@Composable
+private fun PanelTile(
+    panel: Panel,
+    groupId: String,
+    payloads: Map<String, String>,
+    app: MqttDashApplication,
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
+    when (panel) {
+        is Panel.Sensor -> {
+            val raw = payloads["${panel.brokerId}|${panel.topic}"]
+            val value = raw?.let { JsonPath.extract(it, panel.jsonPath) } ?: "--"
+            val alert = if (panel.idealRangeTopic.isBlank()) {
+                SensorAlert.NONE
+            } else {
+                val numericValue = value.toDoubleOrNull()
+                val idealRaw = payloads["${panel.brokerId}|${panel.idealRangeTopic}"]
+                val min = idealRaw?.let { JsonPath.extract(it, "min") }?.toDoubleOrNull()
+                val max = idealRaw?.let { JsonPath.extract(it, "max") }?.toDoubleOrNull()
+                when {
+                    numericValue == null -> SensorAlert.NONE
+                    min != null && numericValue < min -> SensorAlert.BELOW_MIN
+                    max != null && numericValue > max -> SensorAlert.ABOVE_MAX
+                    else -> SensorAlert.NONE
+                }
+            }
+            SensorTile(
+                modifier = modifier,
+                icon = panel.icon,
+                value = value,
+                unit = panel.unit,
+                alert = alert,
+                label = panel.label,
+                onClick = { navController.navigate("group/$groupId/panel/${panel.id}") }
+            )
+        }
+
+        is Panel.Toggle -> {
+            val statePayload = payloads["${panel.brokerId}|${panel.stateTopic}"]
+            val resolvedState = statePayload?.let { JsonPath.extract(it, panel.stateJsonPath) }
+            val isOn = resolvedState?.equals(panel.onPayload, ignoreCase = true) ?: false
+            ToggleTile(
+                modifier = modifier,
+                icon = panel.icon,
+                label = panel.label,
+                isOn = isOn,
+                onToggle = {
+                    app.connectionManager.publish(
+                        panel.brokerId,
+                        panel.commandTopic,
+                        if (isOn) panel.offPayload else panel.onPayload
+                    )
+                },
+                onLongPress = { navController.navigate("group/$groupId/panel/${panel.id}") }
+            )
+        }
     }
 }

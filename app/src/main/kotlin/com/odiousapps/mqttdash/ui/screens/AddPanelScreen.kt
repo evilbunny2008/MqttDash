@@ -58,6 +58,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
         mutableStateOf(existing?.brokerId ?: config.brokers.firstOrNull()?.id ?: "")
     }
     var label by remember(existing) { mutableStateOf(existing?.label ?: "") }
+    var clusterName by remember(existing) { mutableStateOf(existing?.clusterName ?: "") }
     var icon by remember(existing) {
         mutableStateOf(
             when (existing) {
@@ -109,7 +110,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 jsonPath = jsonPath,
                                 unit = unit,
                                 icon = icon,
-                                idealRangeTopic = idealRangeTopic
+                                idealRangeTopic = idealRangeTopic,
+                                clusterName = clusterName
                             )
                         } else {
                             Panel.Toggle(
@@ -121,7 +123,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 offPayload = offPayload,
                                 stateTopic = stateTopic,
                                 stateJsonPath = stateJsonPath,
-                                icon = icon
+                                icon = icon,
+                                clusterName = clusterName
                             )
                         }
                         if (isEditing) {
@@ -188,6 +191,15 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                     value = label,
                     onValueChange = { label = it },
                     label = { Text("Label") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = clusterName,
+                    onValueChange = { clusterName = it },
+                    label = { Text("Cluster name (optional)") },
+                    placeholder = { Text("e.g. Soil Sensor 1 \u2013 groups this with other panels of the same name") },
                     modifier = Modifier.fillMaxWidth()
                 )
 

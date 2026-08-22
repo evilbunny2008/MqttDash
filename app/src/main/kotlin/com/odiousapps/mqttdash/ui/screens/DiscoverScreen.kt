@@ -145,7 +145,8 @@ fun DiscoverScreen(navController: NavController) {
                                         jsonPath = field.key,
                                         unit = SensorDiscovery.suggestedUnit(field.key),
                                         icon = SensorDiscovery.suggestedIcon(field.key),
-                                        idealRangeTopic = if (applyIdeal) sensor.idealRangeTopic!! else ""
+                                        idealRangeTopic = if (applyIdeal) sensor.idealRangeTopic!! else "",
+                                        clusterName = sensor.topic.substringAfterLast("/")
                                     )
                                     app.configRepository.addPanelToGroup(targetGroupId, panel)
                                 }

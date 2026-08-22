@@ -36,6 +36,10 @@ sealed class Panel {
     abstract val id: String
     abstract val label: String
     abstract val brokerId: String
+    // Optional. Panels sharing the same non-blank clusterName within a group
+    // are rendered together in one bordered card with this name shown
+    // underneath - e.g. all the tiles for one physical sensor device.
+    abstract val clusterName: String
 
     @Serializable
     data class Sensor(
@@ -51,7 +55,8 @@ sealed class Panel {
         val decimals: Int = 1,
         // Optional companion topic publishing {"min": x, "max": y} (retained).
         // When set, the tile flashes red below min / blue above max.
-        val idealRangeTopic: String = ""
+        val idealRangeTopic: String = "",
+        override val clusterName: String = ""
     ) : Panel()
 
     @Serializable
@@ -66,7 +71,8 @@ sealed class Panel {
         // rather than only the last command sent.
         val stateTopic: String = "",
         val stateJsonPath: String = "",
-        val icon: TileIcon = TileIcon.POWER
+        val icon: TileIcon = TileIcon.POWER,
+        override val clusterName: String = ""
     ) : Panel()
 }
 
