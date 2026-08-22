@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -87,6 +89,18 @@ fun DiscoverScreen(navController: NavController) {
                     }
                 },
                 actions = {
+                    if (discovered.isNotEmpty()) {
+                        val allExpanded = discovered.all { expandedTopics[it.topic] ?: true }
+                        IconButton(onClick = {
+                            val newState = !allExpanded
+                            discovered.forEach { expandedTopics[it.topic] = newState }
+                        }) {
+                            Icon(
+                                if (allExpanded) Icons.Default.UnfoldLess else Icons.Default.UnfoldMore,
+                                contentDescription = if (allExpanded) "Collapse all" else "Expand all"
+                            )
+                        }
+                    }
                     IconButton(onClick = {
                         if (selectedBrokerId.isNotBlank()) app.connectionManager.discoverAll(selectedBrokerId)
                     }) {
