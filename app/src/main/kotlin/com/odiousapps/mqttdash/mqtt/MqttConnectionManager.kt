@@ -1,8 +1,8 @@
-package com.opensource.mqttdash.mqtt
+package com.odiousapps.mqttdash.mqtt
 
-import com.opensource.mqttdash.data.AppConfig
-import com.opensource.mqttdash.data.Broker
-import com.opensource.mqttdash.data.Panel
+import com.odiousapps.mqttdash.data.AppConfig
+import com.odiousapps.mqttdash.data.Broker
+import com.odiousapps.mqttdash.data.Panel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

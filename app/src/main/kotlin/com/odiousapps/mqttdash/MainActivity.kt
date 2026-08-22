@@ -1,4 +1,4 @@
-package com.opensource.mqttdash
+package com.odiousapps.mqttdash
 
 import android.content.Intent
 import android.os.Build
@@ -7,9 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.opensource.mqttdash.service.MqttForegroundService
-import com.opensource.mqttdash.ui.navigation.AppNavHost
-import com.opensource.mqttdash.ui.theme.MqttDashTheme
+import com.odiousapps.mqttdash.service.MqttForegroundService
+import com.odiousapps.mqttdash.ui.navigation.AppNavHost
+import com.odiousapps.mqttdash.ui.theme.MqttDashTheme
 
 class MainActivity : ComponentActivity() {
 

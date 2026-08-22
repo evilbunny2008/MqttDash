@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.screens
+package com.odiousapps.mqttdash.ui.screens
 
 import android.net.Uri
 import android.util.Base64
@@ -47,9 +47,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.opensource.mqttdash.MqttDashApplication
-import com.opensource.mqttdash.data.Broker
-import com.opensource.mqttdash.data.MqttProtocol
+import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.data.Broker
+import com.odiousapps.mqttdash.data.MqttProtocol
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)

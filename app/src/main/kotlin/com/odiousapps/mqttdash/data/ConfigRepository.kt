@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.data
+package com.odiousapps.mqttdash.data
 
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow

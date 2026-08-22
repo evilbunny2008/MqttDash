@@ -1,8 +1,8 @@
-package com.opensource.mqttdash
+package com.odiousapps.mqttdash
 
 import android.app.Application
-import com.opensource.mqttdash.data.ConfigRepository
-import com.opensource.mqttdash.mqtt.MqttConnectionManager
+import com.odiousapps.mqttdash.data.ConfigRepository
+import com.odiousapps.mqttdash.mqtt.MqttConnectionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch

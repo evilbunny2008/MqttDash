@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.screens
+package com.odiousapps.mqttdash.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,8 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import com.opensource.mqttdash.MqttDashApplication
-import com.opensource.mqttdash.mqtt.ConnectionState
+import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.mqtt.ConnectionState
 
 @Composable
 fun BrokersScreen(navController: NavController) {

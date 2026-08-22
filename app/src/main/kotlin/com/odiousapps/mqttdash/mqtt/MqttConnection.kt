@@ -1,12 +1,12 @@
-package com.opensource.mqttdash.mqtt
+package com.odiousapps.mqttdash.mqtt
 
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client
 import com.hivemq.client.mqtt.mqtt3.Mqtt3ClientBuilder
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
-import com.opensource.mqttdash.data.Broker
-import com.opensource.mqttdash.data.MqttProtocol
+import com.odiousapps.mqttdash.data.Broker
+import com.odiousapps.mqttdash.data.MqttProtocol
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow

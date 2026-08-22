@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.navigation
+package com.odiousapps.mqttdash.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,13 +20,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.opensource.mqttdash.ui.screens.AddEditBrokerScreen
-import com.opensource.mqttdash.ui.screens.AddGroupScreen
-import com.opensource.mqttdash.ui.screens.AddPanelScreen
-import com.opensource.mqttdash.ui.screens.BrokersScreen
-import com.opensource.mqttdash.ui.screens.HomeScreen
-import com.opensource.mqttdash.ui.screens.PlaceholderScreen
-import com.opensource.mqttdash.ui.screens.SettingsScreen
+import com.odiousapps.mqttdash.ui.screens.AddEditBrokerScreen
+import com.odiousapps.mqttdash.ui.screens.AddGroupScreen
+import com.odiousapps.mqttdash.ui.screens.AddPanelScreen
+import com.odiousapps.mqttdash.ui.screens.BrokersScreen
+import com.odiousapps.mqttdash.ui.screens.HomeScreen
+import com.odiousapps.mqttdash.ui.screens.PlaceholderScreen
+import com.odiousapps.mqttdash.ui.screens.SettingsScreen
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
 

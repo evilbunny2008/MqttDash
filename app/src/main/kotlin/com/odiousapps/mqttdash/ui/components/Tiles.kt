@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.components
+package com.odiousapps.mqttdash.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.opensource.mqttdash.data.TileIcon
+import com.odiousapps.mqttdash.data.TileIcon
 
 private fun iconFor(tileIcon: TileIcon): ImageVector = when (tileIcon) {
     TileIcon.HUMIDITY -> Icons.Default.WaterDrop

@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.theme
+package com.odiousapps.mqttdash.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

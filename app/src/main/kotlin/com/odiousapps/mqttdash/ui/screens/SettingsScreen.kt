@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.screens
+package com.odiousapps.mqttdash.ui.screens
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,7 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import com.opensource.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.MqttDashApplication
 
 @Composable
 fun SettingsScreen(navController: NavController) {

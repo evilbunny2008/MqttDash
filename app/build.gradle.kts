@@ -42,6 +42,7 @@ android {
             excludes += "/META-INF/*.SF"
             excludes += "/META-INF/*.DSA"
             excludes += "/META-INF/*.RSA"
+            excludes += "META-INF/io.netty.versions.properties"
         }
     }
 }
@@ -72,4 +73,11 @@ dependencies {
     // transports with real automatic-reconnect handling - this is what replaces
     // Paho's flaky websocket keepalive.
     implementation("com.hivemq:hivemq-mqtt-client:1.4.0")
+    implementation("io.netty:netty-common:4.1.133.Final")
+    implementation("io.netty:netty-handler:4.1.133.Final")
+    implementation("io.netty:netty-codec:4.1.133.Final")
+    implementation("io.netty:netty-codec-http:4.1.133.Final")
+    implementation("io.netty:netty-transport:4.1.133.Final")
+    implementation("io.netty:netty-buffer:4.1.133.Final")
+    implementation("io.netty:netty-resolver:4.1.133.Final")
 }

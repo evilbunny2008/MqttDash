@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.screens
+package com.odiousapps.mqttdash.ui.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,8 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.opensource.mqttdash.MqttDashApplication
-import com.opensource.mqttdash.data.PanelGroup
+import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.data.PanelGroup
 import java.util.UUID
 
 @Composable

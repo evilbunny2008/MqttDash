@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.data
+package com.odiousapps.mqttdash.data
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement

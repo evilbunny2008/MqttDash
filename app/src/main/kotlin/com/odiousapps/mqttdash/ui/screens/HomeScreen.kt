@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.ui.screens
+package com.odiousapps.mqttdash.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,11 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.opensource.mqttdash.MqttDashApplication
-import com.opensource.mqttdash.data.JsonPath
-import com.opensource.mqttdash.data.Panel
-import com.opensource.mqttdash.ui.components.SensorTile
-import com.opensource.mqttdash.ui.components.ToggleTile
+import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.data.JsonPath
+import com.odiousapps.mqttdash.data.Panel
+import com.odiousapps.mqttdash.ui.components.SensorTile
+import com.odiousapps.mqttdash.ui.components.ToggleTile
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

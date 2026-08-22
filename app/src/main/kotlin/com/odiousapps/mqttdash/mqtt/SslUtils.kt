@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.mqtt
+package com.odiousapps.mqttdash.mqtt
 
 import android.util.Base64
 import java.io.ByteArrayInputStream

@@ -1,4 +1,4 @@
-package com.opensource.mqttdash.service
+package com.odiousapps.mqttdash.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -8,7 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.opensource.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.MqttDashApplication
 
 /**
  * Keeps broker connections alive while the app is backgrounded. Toggled by
