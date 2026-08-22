@@ -42,12 +42,26 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
 
         config.groups.flatMap { it.panels }.forEach { panel ->
             when (panel) {
-                is Panel.Sensor -> connections[panel.brokerId]?.subscribe(panel.topic)
+                is Panel.Sensor -> {
+                    connections[panel.brokerId]?.subscribe(panel.topic)
+                    if (panel.idealRangeTopic.isNotBlank()) {
+                        connections[panel.brokerId]?.subscribe(panel.idealRangeTopic)
+                    }
+                }
                 is Panel.Toggle -> if (panel.stateTopic.isNotBlank()) {
                     connections[panel.brokerId]?.subscribe(panel.stateTopic)
                 }
             }
         }
+    }
+
+    /**
+     * Subscribes a broker to every topic ("#") so its retained messages flow
+     * into [latestPayloads] for the Discover Sensors screen to scan. Safe to
+     * call more than once - subscriptions are idempotent.
+     */
+    fun discoverAll(brokerId: String) {
+        connections[brokerId]?.subscribe("#")
     }
 
     private fun createConnection(broker: Broker): MqttConnection {

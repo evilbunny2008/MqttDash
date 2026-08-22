@@ -48,7 +48,10 @@ sealed class Panel {
         val jsonPath: String = "",
         val unit: String = "",
         val icon: TileIcon = TileIcon.GAUGE,
-        val decimals: Int = 1
+        val decimals: Int = 1,
+        // Optional companion topic publishing {"min": x, "max": y} (retained).
+        // When set, the tile flashes red below min / blue above max.
+        val idealRangeTopic: String = ""
     ) : Panel()
 
     @Serializable

@@ -1,5 +1,11 @@
 package com.odiousapps.mqttdash.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
@@ -24,10 +30,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.odiousapps.mqttdash.data.TileIcon
+
+/** Whether a sensor's current value has drifted outside its configured ideal range. */
+enum class SensorAlert { NONE, BELOW_MIN, ABOVE_MAX }
+
+private val AlertRed = Color(0xFFE53935)
+private val AlertBlue = Color(0xFF1E88E5)
 
 private fun iconFor(tileIcon: TileIcon): ImageVector = when (tileIcon) {
     TileIcon.HUMIDITY -> Icons.Default.WaterDrop
@@ -48,12 +62,36 @@ fun SensorTile(
     value: String,
     unit: String,
     label: String,
+    alert: SensorAlert = SensorAlert.NONE,
     onLongPress: (() -> Unit)? = null
 ) {
+    val alertColor = when (alert) {
+        SensorAlert.BELOW_MIN -> AlertRed
+        SensorAlert.ABOVE_MAX -> AlertBlue
+        SensorAlert.NONE -> null
+    }
+
+    val backgroundColor = if (alertColor != null) {
+        val infiniteTransition = rememberInfiniteTransition(label = "sensorAlert")
+        val flashFraction = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 600, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "flashFraction"
+        ).value
+        lerp(MaterialTheme.colorScheme.surfaceVariant, alertColor, flashFraction)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+
     Surface(
         modifier = modifier.combinedClickable(onClick = {}, onLongClick = { onLongPress?.invoke() }),
         shape = RoundedCornerShape(12.dp),
-        tonalElevation = 1.dp
+        color = backgroundColor,
+        tonalElevation = if (alertColor != null) 0.dp else 1.dp
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Icon(iconFor(icon), contentDescription = null)

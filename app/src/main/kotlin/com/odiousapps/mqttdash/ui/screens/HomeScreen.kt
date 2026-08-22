@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,6 +41,7 @@ import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
 import com.odiousapps.mqttdash.data.JsonPath
 import com.odiousapps.mqttdash.data.Panel
+import com.odiousapps.mqttdash.ui.components.SensorAlert
 import com.odiousapps.mqttdash.ui.components.SensorTile
 import com.odiousapps.mqttdash.ui.components.ToggleTile
 
@@ -113,11 +114,26 @@ fun HomeScreen(navController: NavController) {
                                     is Panel.Sensor -> {
                                         val raw = payloads["${panel.brokerId}|${panel.topic}"]
                                         val value = raw?.let { JsonPath.extract(it, panel.jsonPath) } ?: "--"
+                                        val alert = if (panel.idealRangeTopic.isBlank()) {
+                                            SensorAlert.NONE
+                                        } else {
+                                            val numericValue = value.toDoubleOrNull()
+                                            val idealRaw = payloads["${panel.brokerId}|${panel.idealRangeTopic}"]
+                                            val min = idealRaw?.let { JsonPath.extract(it, "min") }?.toDoubleOrNull()
+                                            val max = idealRaw?.let { JsonPath.extract(it, "max") }?.toDoubleOrNull()
+                                            when {
+                                                numericValue == null -> SensorAlert.NONE
+                                                min != null && numericValue < min -> SensorAlert.BELOW_MIN
+                                                max != null && numericValue > max -> SensorAlert.ABOVE_MAX
+                                                else -> SensorAlert.NONE
+                                            }
+                                        }
                                         SensorTile(
                                             modifier = Modifier.width(160.dp),
                                             icon = panel.icon,
                                             value = value,
                                             unit = panel.unit,
+                                            alert = alert,
                                             label = panel.label,
                                             onLongPress = { pendingDelete = group.id to panel.id }
                                         )

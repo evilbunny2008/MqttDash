@@ -18,6 +18,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -55,6 +56,7 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
     var topic by remember { mutableStateOf("") }
     var jsonPath by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("") }
+    var idealRangeTopic by remember { mutableStateOf("") }
 
     // Toggle fields
     var commandTopic by remember { mutableStateOf("") }
@@ -86,7 +88,8 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                                 topic = topic,
                                 jsonPath = jsonPath,
                                 unit = unit,
-                                icon = icon
+                                icon = icon,
+                                idealRangeTopic = idealRangeTopic
                             )
                         } else {
                             Panel.Toggle(
@@ -199,6 +202,18 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                         onValueChange = { unit = it },
                         label = { Text("Unit (optional)") },
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = idealRangeTopic,
+                        onValueChange = { idealRangeTopic = it },
+                        label = { Text("Ideal range topic (optional)") },
+                        placeholder = { Text("e.g. z2m2/SoilSensor_01/ideal \u2013 publishes {\"min\":x,\"max\":y}") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "When set, this tile flashes red below min and blue above max.",
+                        style = MaterialTheme.typography.bodySmall
                     )
                 } else {
                     Spacer(Modifier.height(16.dp))

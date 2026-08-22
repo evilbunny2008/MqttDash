@@ -1,19 +1,19 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
-    namespace = "com.opensource.mqttdash"
-    compileSdk = 34
+    namespace = "com.odiousapps.mqttdash"
+    compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.opensource.mqttdash"
+        applicationId = "com.odiousapps.mqttdash"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 37
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.0.1"
     }
 
     buildTypes {
@@ -27,18 +27,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
     }
 
     packaging {
@@ -48,18 +42,19 @@ android {
             excludes += "/META-INF/*.SF"
             excludes += "/META-INF/*.DSA"
             excludes += "/META-INF/*.RSA"
+            excludes += "/META-INF/io.netty.versions.properties"
         }
     }
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
 
     // XML theme resources (Theme.Material3.*) used by AndroidManifest, separate from
     // the Compose Material3 Kotlin artifact below.
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.14.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
     implementation(composeBom)
@@ -70,13 +65,20 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.9.8")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // MQTT client. Actively maintained, MQTT 3.1.1 + 5.0, robust TCP/SSL/WS/WSS
     // transports with real automatic-reconnect handling - this is what replaces
     // Paho's flaky websocket keepalive.
-    implementation("com.hivemq:hivemq-mqtt-client:1.3.17")
+    implementation("com.hivemq:hivemq-mqtt-client:1.4.0")
+    implementation("io.netty:netty-common:4.1.133.Final")
+    implementation("io.netty:netty-handler:4.1.133.Final")
+    implementation("io.netty:netty-codec:4.1.133.Final")
+    implementation("io.netty:netty-codec-http:4.1.133.Final")
+    implementation("io.netty:netty-transport:4.1.133.Final")
+    implementation("io.netty:netty-buffer:4.1.133.Final")
+    implementation("io.netty:netty-resolver:4.1.133.Final")
 }
