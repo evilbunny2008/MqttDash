@@ -56,7 +56,7 @@ dependencies {
     // the Compose Material3 Kotlin artifact below.
     implementation("com.google.android.material:material:1.14.0")
 
-    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
