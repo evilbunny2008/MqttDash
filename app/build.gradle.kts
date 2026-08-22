@@ -42,7 +42,7 @@ android {
             excludes += "/META-INF/*.SF"
             excludes += "/META-INF/*.DSA"
             excludes += "/META-INF/*.RSA"
-            excludes += "/META-INF/io.netty.versions.properties"
+            excludes += "META-INF/io.netty.versions.properties"
         }
     }
 }
