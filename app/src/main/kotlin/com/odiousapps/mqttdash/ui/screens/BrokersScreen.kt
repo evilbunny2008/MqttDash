@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +26,7 @@ import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
 import com.odiousapps.mqttdash.mqtt.ConnectionState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrokersScreen(navController: NavController) {
     val app = LocalContext.current.applicationContext as MqttDashApplication

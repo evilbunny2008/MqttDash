@@ -140,7 +140,7 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
                     modifier = Modifier.fillMaxWidth().menuAnchor()
                 )
-                androidx.compose.material3.ExposedDropdownMenu(
+                ExposedDropdownMenu(
                     expanded = protocolExpanded,
                     onDismissRequest = { protocolExpanded = false }
                 ) {
