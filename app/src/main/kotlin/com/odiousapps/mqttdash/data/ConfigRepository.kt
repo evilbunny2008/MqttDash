@@ -76,6 +76,12 @@ class ConfigRepository(private val context: Context) {
         })
     }
 
+    fun updatePanel(groupId: String, panel: Panel) = update { cfg ->
+        cfg.copy(groups = cfg.groups.map { g ->
+            if (g.id == groupId) g.copy(panels = g.panels.map { if (it.id == panel.id) panel else it }) else g
+        })
+    }
+
     fun removePanel(groupId: String, panelId: String) = update { cfg ->
         cfg.copy(groups = cfg.groups.map { g ->
             if (g.id == groupId) g.copy(panels = g.panels.filterNot { it.id == panelId }) else g

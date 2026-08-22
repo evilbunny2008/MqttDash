@@ -50,6 +50,16 @@ import java.util.UUID
 
 private const val NEW_GROUP_ID = "__new_group__"
 
+/**
+ * Whether a discovered field should default to "use ideal range" ticked, when
+ * its topic has a matching "<topic>/ideal" companion. Only pre-ticks the
+ * field the range topic is actually meant for (moisture) - other numeric
+ * fields on the same topic (temperature, battery, etc.) default unticked so
+ * they don't end up permanently flashing against an unrelated min/max.
+ */
+private fun defaultUsesIdealRange(fieldKey: String): Boolean =
+    fieldKey.contains("moisture", ignoreCase = true)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(navController: NavController) {
@@ -126,7 +136,7 @@ fun DiscoverScreen(navController: NavController) {
                                 val key = "${sensor.topic}|${field.key}"
                                 if (selections[key] == true) {
                                     val applyIdeal = sensor.idealRangeTopic != null &&
-                                        (useIdealRange[key] ?: true)
+                                        (useIdealRange[key] ?: defaultUsesIdealRange(field.key))
                                     val panel = Panel.Sensor(
                                         id = UUID.randomUUID().toString(),
                                         label = SensorDiscovery.suggestedLabel(field.key),
@@ -270,7 +280,7 @@ fun DiscoverScreen(navController: NavController) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text("ideal range", style = MaterialTheme.typography.labelSmall)
                                         Checkbox(
-                                            checked = useIdealRange[key] ?: true,
+                                            checked = useIdealRange[key] ?: defaultUsesIdealRange(field.key),
                                             onCheckedChange = { checked -> useIdealRange[key] = checked },
                                             enabled = selections[key] == true
                                         )

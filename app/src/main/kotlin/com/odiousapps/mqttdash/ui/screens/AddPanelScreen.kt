@@ -19,6 +19,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -43,32 +44,51 @@ import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPanelScreen(navController: NavController, groupId: String) {
+fun AddPanelScreen(navController: NavController, groupId: String, panelId: String? = null) {
     val app = LocalContext.current.applicationContext as MqttDashApplication
     val config by app.configRepository.config.collectAsState()
 
-    var panelType by remember { mutableStateOf("Sensor") }
-    var selectedBrokerId by remember { mutableStateOf(config.brokers.firstOrNull()?.id ?: "") }
-    var label by remember { mutableStateOf("") }
-    var icon by remember { mutableStateOf(TileIcon.GAUGE) }
+    val existing = remember(groupId, panelId, config) {
+        panelId?.let { id -> config.groups.find { it.id == groupId }?.panels?.find { it.id == id } }
+    }
+    val isEditing = existing != null
+
+    var panelType by remember(existing) { mutableStateOf(if (existing is Panel.Toggle) "Toggle" else "Sensor") }
+    var selectedBrokerId by remember(existing) {
+        mutableStateOf(existing?.brokerId ?: config.brokers.firstOrNull()?.id ?: "")
+    }
+    var label by remember(existing) { mutableStateOf(existing?.label ?: "") }
+    var icon by remember(existing) {
+        mutableStateOf(
+            when (existing) {
+                is Panel.Sensor -> existing.icon
+                is Panel.Toggle -> existing.icon
+                else -> TileIcon.GAUGE
+            }
+        )
+    }
 
     // Sensor fields
-    var topic by remember { mutableStateOf("") }
-    var jsonPath by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("") }
-    var idealRangeTopic by remember { mutableStateOf("") }
+    var topic by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.topic ?: "") }
+    var jsonPath by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.jsonPath ?: "") }
+    var unit by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.unit ?: "") }
+    var idealRangeTopic by remember(existing) {
+        mutableStateOf((existing as? Panel.Sensor)?.idealRangeTopic ?: "")
+    }
 
     // Toggle fields
-    var commandTopic by remember { mutableStateOf("") }
-    var onPayload by remember { mutableStateOf("ON") }
-    var offPayload by remember { mutableStateOf("OFF") }
-    var stateTopic by remember { mutableStateOf("") }
-    var stateJsonPath by remember { mutableStateOf("") }
+    var commandTopic by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.commandTopic ?: "") }
+    var onPayload by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.onPayload ?: "ON") }
+    var offPayload by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.offPayload ?: "OFF") }
+    var stateTopic by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.stateTopic ?: "") }
+    var stateJsonPath by remember(existing) {
+        mutableStateOf((existing as? Panel.Toggle)?.stateJsonPath ?: "")
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Panel") },
+                title = { Text(if (isEditing) "Edit Panel" else "Add Panel") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -82,7 +102,7 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                     onClick = {
                         val panel: Panel = if (panelType == "Sensor") {
                             Panel.Sensor(
-                                id = UUID.randomUUID().toString(),
+                                id = existing?.id ?: UUID.randomUUID().toString(),
                                 label = label.ifBlank { "Sensor" },
                                 brokerId = selectedBrokerId,
                                 topic = topic,
@@ -93,7 +113,7 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                             )
                         } else {
                             Panel.Toggle(
-                                id = UUID.randomUUID().toString(),
+                                id = existing?.id ?: UUID.randomUUID().toString(),
                                 label = label.ifBlank { "Toggle" },
                                 brokerId = selectedBrokerId,
                                 commandTopic = commandTopic,
@@ -104,13 +124,17 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                                 icon = icon
                             )
                         }
-                        app.configRepository.addPanelToGroup(groupId, panel)
+                        if (isEditing) {
+                            app.configRepository.updatePanel(groupId, panel)
+                        } else {
+                            app.configRepository.addPanelToGroup(groupId, panel)
+                        }
                         navController.popBackStack()
                     },
                     enabled = selectedBrokerId.isNotBlank() &&
                         (if (panelType == "Sensor") topic.isNotBlank() else commandTopic.isNotBlank()),
                     modifier = Modifier.fillMaxWidth().padding(16.dp)
-                ) { Text("Add") }
+                ) { Text(if (isEditing) "Save" else "Add") }
             }
         }
     ) { padding ->
@@ -121,14 +145,20 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = panelType == "Sensor",
-                        onClick = { panelType = "Sensor" },
+                        onClick = { if (!isEditing) panelType = "Sensor" },
                         shape = SegmentedButtonDefaults.itemShape(0, 2)
                     ) { Text("Sensor") }
                     SegmentedButton(
                         selected = panelType == "Toggle",
-                        onClick = { panelType = "Toggle" },
+                        onClick = { if (!isEditing) panelType = "Toggle" },
                         shape = SegmentedButtonDefaults.itemShape(1, 2)
                     ) { Text("Toggle") }
+                }
+                if (isEditing) {
+                    Text(
+                        "Panel type can't be changed once created \u2013 delete and re-add instead.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -256,6 +286,17 @@ fun AddPanelScreen(navController: NavController, groupId: String) {
                         placeholder = { Text("e.g. state") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                if (isEditing && existing != null) {
+                    Spacer(Modifier.height(24.dp))
+                    OutlinedButton(
+                        onClick = {
+                            app.configRepository.removePanel(groupId, existing.id)
+                            navController.popBackStack()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Delete panel") }
                 }
             }
             Spacer(Modifier.height(32.dp))

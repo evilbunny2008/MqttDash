@@ -82,9 +82,12 @@ fun AppNavHost() {
                 AddEditBrokerScreen(navController, if (id == "new") null else id)
             }
             composable("addGroup") { AddGroupScreen(navController) }
-            composable("group/{groupId}/addPanel") { entry ->
+            composable("group/{groupId}/panel/{panelId}") { entry ->
                 val groupId = entry.arguments?.getString("groupId")
-                if (groupId != null) AddPanelScreen(navController, groupId)
+                val panelId = entry.arguments?.getString("panelId")
+                if (groupId != null) {
+                    AddPanelScreen(navController, groupId, if (panelId == "new") null else panelId)
+                }
             }
         }
     }

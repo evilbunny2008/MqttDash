@@ -52,7 +52,6 @@ fun HomeScreen(navController: NavController) {
     val config by app.configRepository.config.collectAsState()
     val payloads by app.connectionManager.latestPayloads.collectAsState()
 
-    var pendingDelete by remember { mutableStateOf<Pair<String, String>?>(null) } // groupId to panelId
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -95,7 +94,7 @@ fun HomeScreen(navController: NavController) {
                                 contentDescription = null
                             )
                         }
-                        IconButton(onClick = { navController.navigate("group/${group.id}/addPanel") }) {
+                        IconButton(onClick = { navController.navigate("group/${group.id}/panel/new") }) {
                             Icon(Icons.Default.Add, contentDescription = "Add panel to ${group.name}")
                         }
                         IconButton(onClick = { pendingGroupDelete = group.id }) {
@@ -135,7 +134,7 @@ fun HomeScreen(navController: NavController) {
                                             unit = panel.unit,
                                             alert = alert,
                                             label = panel.label,
-                                            onLongPress = { pendingDelete = group.id to panel.id }
+                                            onClick = { navController.navigate("group/${group.id}/panel/${panel.id}") }
                                         )
                                     }
 
@@ -155,7 +154,7 @@ fun HomeScreen(navController: NavController) {
                                                     if (isOn) panel.offPayload else panel.onPayload
                                                 )
                                             },
-                                            onLongPress = { pendingDelete = group.id to panel.id }
+                                            onLongPress = { navController.navigate("group/${group.id}/panel/${panel.id}") }
                                         )
                                     }
                                 }
@@ -165,20 +164,6 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         }
-    }
-
-    pendingDelete?.let { (groupId, panelId) ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Remove panel?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    app.configRepository.removePanel(groupId, panelId)
-                    pendingDelete = null
-                }) { Text("Remove") }
-            },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } }
-        )
     }
 
     pendingGroupDelete?.let { groupId ->

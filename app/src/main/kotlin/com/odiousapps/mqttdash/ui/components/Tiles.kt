@@ -63,6 +63,7 @@ fun SensorTile(
     unit: String,
     label: String,
     alert: SensorAlert = SensorAlert.NONE,
+    onClick: () -> Unit = {},
     onLongPress: (() -> Unit)? = null
 ) {
     val alertColor = when (alert) {
@@ -88,7 +89,7 @@ fun SensorTile(
     }
 
     Surface(
-        modifier = modifier.combinedClickable(onClick = {}, onLongClick = { onLongPress?.invoke() }),
+        modifier = modifier.combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() }),
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
         tonalElevation = if (alertColor != null) 0.dp else 1.dp
