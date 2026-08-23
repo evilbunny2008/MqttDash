@@ -42,7 +42,14 @@ object SensorDiscovery {
      */
     data class DeviceAppConfig(
         val name: String,
+        // Optional. When set, panels go into a dashboard group with this exact
+        // name (created if it doesn't exist yet), bypassing whatever group is
+        // picked in the UI - the device fully self-configures.
+        val group: String?,
         val panelFields: List<String>,
+        // Optional. Parallel to panelFields by index - custom label per field.
+        // Falls back to suggestedLabel() for any field with no matching entry.
+        val labels: List<String>,
         val rangePairs: Map<String, Pair<String, String>>
     )
 
@@ -74,6 +81,9 @@ object SensorDiscovery {
             null
         } else {
             val name = (obj["name"] as? JsonPrimitive)?.contentOrNull ?: ""
+            val group = (obj["group"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+            val labelsArray = obj["labels"] as? JsonArray
+            val labels = labelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
             val numericKeys = obj.entries
                 .filter { (_, v) -> (v as? JsonPrimitive)?.doubleOrNull != null }
                 .map { it.key }
@@ -83,7 +93,7 @@ object SensorDiscovery {
                 val maxKey = "${base}_max"
                 if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
             }
-            DeviceAppConfig(name, panelFields, rangePairs)
+            DeviceAppConfig(name, group, panelFields, labels, rangePairs)
         }
     } catch (e: Exception) {
         null

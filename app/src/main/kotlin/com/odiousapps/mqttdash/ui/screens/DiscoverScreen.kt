@@ -100,6 +100,16 @@ fun DiscoverScreen(navController: NavController) {
         id
     } else selectedGroupId
 
+    // Finds (or creates) a group by exact name - used when a device's own
+    // "group" field should decide placement, bypassing the UI's group picker.
+    fun resolveGroupIdByName(name: String): String {
+        val existing = config.groups.find { it.name.equals(name, ignoreCase = true) }
+        if (existing != null) return existing.id
+        val id = UUID.randomUUID().toString()
+        app.configRepository.upsertGroup(PanelGroup(id = id, name = name))
+        return id
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -276,9 +286,11 @@ fun DiscoverScreen(navController: NavController) {
                             Spacer(Modifier.height(4.dp))
                             OutlinedButton(
                                 onClick = {
+                                    val targetGroupId = deviceConfig.group?.let { resolveGroupIdByName(it) }
+                                        ?: resolveTargetGroupId()
                                     applyDeviceConfig(
                                         app = app,
-                                        targetGroupId = resolveTargetGroupId(),
+                                        targetGroupId = targetGroupId,
                                         brokerId = selectedBrokerId,
                                         sensorTopic = sensor.topic,
                                         sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
@@ -297,7 +309,9 @@ fun DiscoverScreen(navController: NavController) {
                             }
                             Text(
                                 "Creates ${deviceConfig.panelFields.size} panel(s) exactly as listed in " +
-                                    "${appConfigTopic}, skipping the checkboxes below.",
+                                    "${appConfigTopic}" +
+                                    (deviceConfig.group?.let { " into group \"$it\"" } ?: "") +
+                                    ", skipping the checkboxes below.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Spacer(Modifier.height(8.dp))
@@ -367,20 +381,23 @@ private fun applyDeviceConfig(
     val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
     val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
 
-    deviceConfig.panelFields.forEach { field ->
+    deviceConfig.panelFields.forEachIndexed { index, field ->
         val topic = when {
             field in sensorFieldKeys -> sensorTopic
             appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
             else -> null
-        } ?: return@forEach
+        } ?: return@forEachIndexed
 
         val rangeBase = if (field !in rangeKeys) {
             deviceConfig.rangePairs.keys.find { base -> field.contains(base, ignoreCase = true) }
         } else null
 
+        val label = deviceConfig.labels.getOrNull(index)?.takeIf { it.isNotBlank() }
+            ?: SensorDiscovery.suggestedLabel(field)
+
         val panel = Panel.Sensor(
             id = UUID.randomUUID().toString(),
-            label = SensorDiscovery.suggestedLabel(field),
+            label = label,
             brokerId = brokerId,
             topic = topic,
             jsonPath = field,
