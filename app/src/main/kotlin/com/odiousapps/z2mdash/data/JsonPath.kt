@@ -1,5 +1,6 @@
 package com.odiousapps.z2mdash.data
 
+import java.time.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -31,5 +32,16 @@ object JsonPath {
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Parses an ISO-8601 timestamp (e.g. Zigbee2MQTT's "last_seen" field,
+     * "2026-08-22T13:46:35.354Z") to epoch millis, or null if the string isn't
+     * a valid ISO-8601 instant.
+     */
+    fun parseIso8601(value: String): Long? = try {
+        Instant.parse(value).toEpochMilli()
+    } catch (_: Exception) {
+        null
     }
 }

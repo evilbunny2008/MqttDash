@@ -242,13 +242,21 @@ private fun ClusterCard(
     columns: Int,
     tileWidth: Dp
 ) {
-    val ageText = remember(panels, timestamps, nowMillis) {
+    val ageText = remember(panels, payloads, timestamps, nowMillis) {
         val latestTimestamp = panels.mapNotNull { panel ->
             val topic = when (panel) {
                 is Panel.Sensor -> panel.topic
                 is Panel.Toggle -> panel.stateTopic.takeIf { it.isNotBlank() }
-            }
-            topic?.let { timestamps["${panel.brokerId}|$it"] }
+            } ?: return@mapNotNull null
+            val key = "${panel.brokerId}|$topic"
+            // Prefer the device's own reported time (Zigbee2MQTT's "last_seen"
+            // field, when present) over our app's receipt time - it reflects
+            // when the device itself last reported in, not just when this app
+            // instance happened to be listening (which resets on reconnect).
+            val deviceReportedMillis = payloads[key]
+                ?.let { JsonPath.extract(it, "last_seen") }
+                ?.let { JsonPath.parseIso8601(it) }
+            deviceReportedMillis ?: timestamps[key]
         }.maxOrNull()
         latestTimestamp?.let {
             DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
