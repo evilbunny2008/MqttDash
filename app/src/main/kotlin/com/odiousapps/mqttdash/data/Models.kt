@@ -53,9 +53,14 @@ sealed class Panel {
         val unit: String = "",
         val icon: TileIcon = TileIcon.GAUGE,
         val decimals: Int = 1,
-        // Optional companion topic publishing {"min": x, "max": y} (retained).
-        // When set, the tile flashes red below min / blue above max.
+        // Optional companion topic publishing the ideal range (retained). When set,
+        // the tile flashes red below min / green within / blue above max. Defaults
+        // to a topic shaped {"min":x,"max":y}; idealMinPath/idealMaxPath let it
+        // instead point at differently-named sibling fields (e.g. "moisture_min" /
+        // "moisture_max" inside a broader device config payload).
         val idealRangeTopic: String = "",
+        val idealMinPath: String = "min",
+        val idealMaxPath: String = "max",
         override val clusterName: String = ""
     ) : Panel()
 

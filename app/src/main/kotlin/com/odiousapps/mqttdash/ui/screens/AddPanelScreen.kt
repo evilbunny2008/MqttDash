@@ -76,6 +76,12 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     var idealRangeTopic by remember(existing) {
         mutableStateOf((existing as? Panel.Sensor)?.idealRangeTopic ?: "")
     }
+    var idealMinPath by remember(existing) {
+        mutableStateOf((existing as? Panel.Sensor)?.idealMinPath ?: "min")
+    }
+    var idealMaxPath by remember(existing) {
+        mutableStateOf((existing as? Panel.Sensor)?.idealMaxPath ?: "max")
+    }
 
     // Toggle fields
     var commandTopic by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.commandTopic ?: "") }
@@ -111,6 +117,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 unit = unit,
                                 icon = icon,
                                 idealRangeTopic = idealRangeTopic,
+                                idealMinPath = idealMinPath,
+                                idealMaxPath = idealMaxPath,
                                 clusterName = clusterName
                             )
                         } else {
@@ -253,8 +261,31 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         placeholder = { Text("e.g. z2m2/SoilSensor_01/ideal \u2013 publishes {\"min\":x,\"max\":y}") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (idealRangeTopic.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = idealMinPath,
+                                onValueChange = { idealMinPath = it },
+                                label = { Text("Min field name") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            OutlinedTextField(
+                                value = idealMaxPath,
+                                onValueChange = { idealMaxPath = it },
+                                label = { Text("Max field name") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Text(
+                            "Only needed if the topic doesn't use plain \"min\"/\"max\" keys \u2013 " +
+                                "e.g. set these to \"moisture_min\"/\"moisture_max\" for a shared device config topic.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     Text(
-                        "When set, this tile flashes red below min and blue above max.",
+                        "When set, this tile flashes red below min, green within range, and blue above max.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 } else {

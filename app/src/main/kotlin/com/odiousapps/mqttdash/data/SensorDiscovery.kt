@@ -1,8 +1,10 @@
 package com.odiousapps.mqttdash.data
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 
 /**
@@ -21,14 +23,34 @@ object SensorDiscovery {
         val topic: String,
         val fields: List<DiscoveredField>,
         // Present when "<topic>/ideal" also exists among the observed topics.
-        val idealRangeTopic: String?
+        val idealRangeTopic: String?,
+        // Present when "<topic>/app" also exists among the observed topics -
+        // a device-published dashboard config (name, field list, thresholds).
+        val appConfigTopic: String?
+    )
+
+    /**
+     * A device-published dashboard config, e.g.
+     * {"name":"Alpinia - 01","moisture_min":60,"moisture_max":75,
+     *  "panels":["linkquality","humidity","temperature","soil_moisture"]}
+     *
+     * [rangePairs] maps a base concept name (e.g. "moisture") to its
+     * (minKey, maxKey) pair, discovered generically by looking for any two
+     * numeric fields named "<base>_min" and "<base>_max" in the same
+     * payload - not hardcoded to "moisture" specifically, so a future device
+     * publishing "temperature_min"/"temperature_max" works the same way.
+     */
+    data class DeviceAppConfig(
+        val name: String,
+        val panelFields: List<String>,
+        val rangePairs: Map<String, Pair<String, String>>
     )
 
     // Topics matching these patterns are structural, not sensor data - skip them
     // even if they happen to contain a stray number (defence in depth; in
     // practice the "must have a numeric field" check below already excludes
     // almost all of these).
-    private val ignoredSuffixes = listOf("/set", "/get", "/availability", "/ideal", "/config")
+    private val ignoredSuffixes = listOf("/set", "/get", "/availability", "/ideal", "/app", "/config")
     private val ignoredSubstrings = listOf("/bridge/")
 
     fun discoverSensors(payloadsForBroker: Map<String, String>): List<DiscoveredSensor> {
@@ -38,8 +60,33 @@ object SensorDiscovery {
             val fields = numericFieldsOf(payload)
             if (fields.isEmpty()) return@mapNotNull null
             val idealTopic = "$topic/ideal".takeIf { it in allTopics }
-            DiscoveredSensor(topic, fields, idealTopic)
+            val appTopic = "$topic/app".takeIf { it in allTopics }
+            DiscoveredSensor(topic, fields, idealTopic, appTopic)
         }.sortedBy { it.topic }
+    }
+
+    /** Parses a "<topic>/app" payload into a DeviceAppConfig, or null if it doesn't look like one. */
+    fun parseDeviceAppConfig(payload: String): DeviceAppConfig? = try {
+        val obj = Json.parseToJsonElement(payload) as? JsonObject
+        val panelsArray = obj?.get("panels") as? JsonArray
+        val panelFields = panelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+        if (obj == null || panelFields.isNullOrEmpty()) {
+            null
+        } else {
+            val name = (obj["name"] as? JsonPrimitive)?.contentOrNull ?: ""
+            val numericKeys = obj.entries
+                .filter { (_, v) -> (v as? JsonPrimitive)?.doubleOrNull != null }
+                .map { it.key }
+            val rangePairs = mutableMapOf<String, Pair<String, String>>()
+            numericKeys.filter { it.endsWith("_min") }.forEach { minKey ->
+                val base = minKey.removeSuffix("_min")
+                val maxKey = "${base}_max"
+                if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
+            }
+            DeviceAppConfig(name, panelFields, rangePairs)
+        }
+    } catch (e: Exception) {
+        null
     }
 
     private fun isIgnorable(topic: String): Boolean {

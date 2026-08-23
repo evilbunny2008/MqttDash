@@ -220,8 +220,8 @@ private fun PanelTile(
             } else {
                 val numericValue = value.toDoubleOrNull()
                 val idealRaw = payloads["${panel.brokerId}|${panel.idealRangeTopic}"]
-                val min = idealRaw?.let { JsonPath.extract(it, "min") }?.toDoubleOrNull()
-                val max = idealRaw?.let { JsonPath.extract(it, "max") }?.toDoubleOrNull()
+                val min = idealRaw?.let { JsonPath.extract(it, panel.idealMinPath) }?.toDoubleOrNull()
+                val max = idealRaw?.let { JsonPath.extract(it, panel.idealMaxPath) }?.toDoubleOrNull()
                 when {
                     numericValue == null -> SensorAlert.NONE
                     min != null && numericValue < min -> SensorAlert.BELOW_MIN

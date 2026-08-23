@@ -1,12 +1,12 @@
 package com.odiousapps.mqttdash.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +25,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.data.JsonPath
 import com.odiousapps.mqttdash.data.Panel
 import com.odiousapps.mqttdash.data.PanelGroup
 import com.odiousapps.mqttdash.data.SensorDiscovery
@@ -89,6 +91,14 @@ fun DiscoverScreen(navController: NavController) {
     val discovered = remember(brokerPayloads) { SensorDiscovery.discoverSensors(brokerPayloads) }
     val selectedCount = selections.values.count { it }
 
+    // Resolves (creating if needed) the group new panels should land in. Shared
+    // by the manual "Add N panels" flow and the one-tap "Apply device config" flow.
+    fun resolveTargetGroupId(): String = if (selectedGroupId == NEW_GROUP_ID) {
+        val id = UUID.randomUUID().toString()
+        app.configRepository.upsertGroup(PanelGroup(id = id, name = newGroupName.ifBlank { "Discovered Sensors" }))
+        id
+    } else selectedGroupId
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -123,14 +133,7 @@ fun DiscoverScreen(navController: NavController) {
             if (selectedCount > 0) {
                 Button(
                     onClick = {
-                        val targetGroupId = if (selectedGroupId == NEW_GROUP_ID) {
-                            val id = UUID.randomUUID().toString()
-                            app.configRepository.upsertGroup(
-                                PanelGroup(id = id, name = newGroupName.ifBlank { "Discovered Sensors" })
-                            )
-                            id
-                        } else selectedGroupId
-
+                        val targetGroupId = resolveTargetGroupId()
                         discovered.forEach { sensor ->
                             sensor.fields.forEach { field ->
                                 val key = "${sensor.topic}|${field.key}"
@@ -234,8 +237,8 @@ fun DiscoverScreen(navController: NavController) {
                 )
             } else {
                 Text(
-                    "Tick the fields you want as dashboard tiles. Topics with no numeric " +
-                        "JSON fields (commands, availability, bridge status, etc.) are left out automatically.",
+                    "Tick the fields you want as dashboard tiles, or use \"Apply device config\" " +
+                        "if the device publishes its own <topic>/app config.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 discovered.forEach { sensor ->
@@ -262,7 +265,42 @@ fun DiscoverScreen(navController: NavController) {
                             contentDescription = if (isExpanded) "Collapse" else "Expand"
                         )
                     }
+
+                    val appConfigPayload = sensor.appConfigTopic?.let { brokerPayloads[it] }
+                    val deviceConfig = appConfigPayload?.let { SensorDiscovery.parseDeviceAppConfig(it) }
+
                     if (isExpanded) {
+                        if (deviceConfig != null && sensor.appConfigTopic != null) {
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    applyDeviceConfig(
+                                        app = app,
+                                        targetGroupId = resolveTargetGroupId(),
+                                        brokerId = selectedBrokerId,
+                                        sensorTopic = sensor.topic,
+                                        sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
+                                        appConfigTopic = sensor.appConfigTopic,
+                                        appConfigPayload = appConfigPayload,
+                                        deviceConfig = deviceConfig
+                                    )
+                                    navController.popBackStack()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Apply device config" +
+                                        if (deviceConfig.name.isNotBlank()) ": ${deviceConfig.name}" else ""
+                                )
+                            }
+                            Text(
+                                "Creates ${deviceConfig.panelFields.size} panel(s) exactly as listed in " +
+                                    "${sensor.appConfigTopic}, skipping the checkboxes below.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+
                         sensor.fields.forEach { field ->
                             val key = "${sensor.topic}|${field.key}"
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -294,5 +332,54 @@ fun DiscoverScreen(navController: NavController) {
             }
             Spacer(Modifier.height(32.dp))
         }
+    }
+}
+
+/**
+ * Creates one panel per field named in [deviceConfig].panelFields. Each field is
+ * looked up first in the main sensor topic, then in the app-config topic itself
+ * (covers fields like "moisture_min" that only exist in the config payload).
+ * Any field that's part of a detected "<base>_min"/"<base>_max" pair gets wired
+ * up with an ideal range pointing at the app-config topic - except the min/max
+ * fields themselves, which would otherwise trivially compare against their own value.
+ */
+private fun applyDeviceConfig(
+    app: MqttDashApplication,
+    targetGroupId: String,
+    brokerId: String,
+    sensorTopic: String,
+    sensorFieldKeys: Set<String>,
+    appConfigTopic: String,
+    appConfigPayload: String?,
+    deviceConfig: SensorDiscovery.DeviceAppConfig
+) {
+    val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
+    val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
+
+    deviceConfig.panelFields.forEach { field ->
+        val topic = when {
+            field in sensorFieldKeys -> sensorTopic
+            appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
+            else -> null
+        } ?: return@forEach
+
+        val rangeBase = if (field !in rangeKeys) {
+            deviceConfig.rangePairs.keys.find { base -> field.contains(base, ignoreCase = true) }
+        } else null
+
+        val panel = Panel.Sensor(
+            id = UUID.randomUUID().toString(),
+            label = SensorDiscovery.suggestedLabel(field),
+            brokerId = brokerId,
+            topic = topic,
+            jsonPath = field,
+            unit = SensorDiscovery.suggestedUnit(field),
+            icon = SensorDiscovery.suggestedIcon(field),
+            idealRangeTopic = if (rangeBase != null) appConfigTopic else "",
+            idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
+            idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
+            clusterName = clusterName
+        )
+        app.configRepository.addPanelToGroup(targetGroupId, panel)
     }
 }
