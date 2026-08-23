@@ -136,8 +136,13 @@ fun HomeScreen(navController: NavController) {
                                 val key = panel.clusterName.ifBlank { "__single__${panel.id}" }
                                 clusters.getOrPut(key) { mutableListOf() }.add(panel)
                             }
+                            // Sort clusters/standalone tiles by their lowest displayOrder (falls
+                            // back to insertion order for anything left at the Int.MAX_VALUE default).
+                            val orderedClusters = clusters.values.sortedBy { bucket ->
+                                bucket.minOf { it.displayOrder }
+                            }
 
-                            clusters.values.forEach { panelsInCluster ->
+                            orderedClusters.forEach { panelsInCluster ->
                                 val name = panelsInCluster.first().clusterName
                                 if (name.isBlank()) {
                                     PanelTile(

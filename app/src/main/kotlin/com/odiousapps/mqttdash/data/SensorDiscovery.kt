@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 
 /**
  * Turns a raw bag of "topic -> last payload" (as gathered by subscribing a
@@ -46,6 +47,10 @@ object SensorDiscovery {
         // name (created if it doesn't exist yet), bypassing whatever group is
         // picked in the UI - the device fully self-configures.
         val group: String?,
+        // Optional. Position of this device's cluster/panels within the group
+        // (lower sorts first) - the order panels appear *inside* [group], not
+        // the group's own position among other dashboard groups.
+        val groupOrder: Int?,
         val panelFields: List<String>,
         // Optional. Parallel to panelFields by index - custom label per field.
         // Falls back to suggestedLabel() for any field with no matching entry.
@@ -82,6 +87,7 @@ object SensorDiscovery {
         } else {
             val name = (obj["name"] as? JsonPrimitive)?.contentOrNull ?: ""
             val group = (obj["group"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+            val groupOrder = (obj["group_order"] as? JsonPrimitive)?.intOrNull
             val labelsArray = obj["labels"] as? JsonArray
             val labels = labelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
             val numericKeys = obj.entries
@@ -93,7 +99,7 @@ object SensorDiscovery {
                 val maxKey = "${base}_max"
                 if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
             }
-            DeviceAppConfig(name, group, panelFields, labels, rangePairs)
+            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs)
         }
     } catch (e: Exception) {
         null

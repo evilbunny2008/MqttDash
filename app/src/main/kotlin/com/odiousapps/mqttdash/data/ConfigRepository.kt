@@ -78,6 +78,18 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = reordered)
     }
 
+    /** Repositions a group to the given 1-based index, clamped to the valid range. */
+    fun moveGroupToIndex(groupId: String, oneBasedIndex: Int) = update { cfg ->
+        val currentIndex = cfg.groups.indexOfFirst { it.id == groupId }
+        if (currentIndex < 0) return@update cfg
+        val targetIndex = (oneBasedIndex - 1).coerceIn(0, cfg.groups.lastIndex)
+        if (targetIndex == currentIndex) return@update cfg
+        val reordered = cfg.groups.toMutableList()
+        val moved = reordered.removeAt(currentIndex)
+        reordered.add(targetIndex, moved)
+        cfg.copy(groups = reordered)
+    }
+
     fun setGroupCollapsed(groupId: String, collapsed: Boolean) = update { cfg ->
         cfg.copy(groups = cfg.groups.map { if (it.id == groupId) it.copy(collapsed = collapsed) else it })
     }

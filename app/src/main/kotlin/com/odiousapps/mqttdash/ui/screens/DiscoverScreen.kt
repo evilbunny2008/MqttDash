@@ -406,7 +406,8 @@ private fun applyDeviceConfig(
             idealRangeTopic = if (rangeBase != null) appConfigTopic else "",
             idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
             idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
-            clusterName = clusterName
+            clusterName = clusterName,
+            displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
         )
         app.configRepository.addPanelToGroup(targetGroupId, panel)
     }

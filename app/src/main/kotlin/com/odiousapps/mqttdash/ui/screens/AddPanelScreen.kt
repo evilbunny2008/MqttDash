@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
@@ -60,6 +62,9 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     }
     var label by remember(existing) { mutableStateOf(existing?.label ?: "") }
     var clusterName by remember(existing) { mutableStateOf(existing?.clusterName ?: "") }
+    var displayOrderText by remember(existing) {
+        mutableStateOf(existing?.displayOrder?.takeIf { it != Int.MAX_VALUE }?.toString() ?: "")
+    }
     var icon by remember(existing) {
         mutableStateOf(
             when (existing) {
@@ -108,6 +113,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
             if (config.brokers.isNotEmpty()) {
                 Button(
                     onClick = {
+                        val displayOrderValue = displayOrderText.toIntOrNull() ?: Int.MAX_VALUE
                         val panel: Panel = if (panelType == "Sensor") {
                             Panel.Sensor(
                                 id = existing?.id ?: UUID.randomUUID().toString(),
@@ -120,7 +126,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 idealRangeTopic = idealRangeTopic,
                                 idealMinPath = idealMinPath,
                                 idealMaxPath = idealMaxPath,
-                                clusterName = clusterName
+                                clusterName = clusterName,
+                                displayOrder = displayOrderValue
                             )
                         } else {
                             Panel.Toggle(
@@ -133,7 +140,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 stateTopic = stateTopic,
                                 stateJsonPath = stateJsonPath,
                                 icon = icon,
-                                clusterName = clusterName
+                                clusterName = clusterName,
+                                displayOrder = displayOrderValue
                             )
                         }
                         if (isEditing) {
@@ -209,6 +217,16 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                     onValueChange = { clusterName = it },
                     label = { Text("Cluster name (optional)") },
                     placeholder = { Text("e.g. Soil Sensor 1 \u2013 groups this with other panels of the same name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = displayOrderText,
+                    onValueChange = { displayOrderText = it.filter { c -> c.isDigit() } },
+                    label = { Text("Display order (optional)") },
+                    placeholder = { Text("Lower numbers appear first within the group") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
 

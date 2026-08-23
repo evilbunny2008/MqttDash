@@ -40,6 +40,10 @@ sealed class Panel {
     // are rendered together in one bordered card with this name shown
     // underneath - e.g. all the tiles for one physical sensor device.
     abstract val clusterName: String
+    // Controls left-to-right/top-to-bottom position within a group (lower
+    // sorts first). Panels/clusters without an explicit order default to
+    // Int.MAX_VALUE, so they fall in after anything explicitly ordered.
+    abstract val displayOrder: Int
 
     @Serializable
     data class Sensor(
@@ -61,7 +65,8 @@ sealed class Panel {
         val idealRangeTopic: String = "",
         val idealMinPath: String = "min",
         val idealMaxPath: String = "max",
-        override val clusterName: String = ""
+        override val clusterName: String = "",
+        override val displayOrder: Int = Int.MAX_VALUE
     ) : Panel()
 
     @Serializable
@@ -77,7 +82,8 @@ sealed class Panel {
         val stateTopic: String = "",
         val stateJsonPath: String = "",
         val icon: TileIcon = TileIcon.POWER,
-        override val clusterName: String = ""
+        override val clusterName: String = "",
+        override val displayOrder: Int = Int.MAX_VALUE
     ) : Panel()
 }
 
