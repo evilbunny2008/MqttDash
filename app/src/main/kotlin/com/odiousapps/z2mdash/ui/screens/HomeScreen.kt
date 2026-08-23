@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -91,6 +92,7 @@ fun HomeScreen(navController: NavController) {
     }
 
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
+    var pendingClusterDelete by remember { mutableStateOf<PendingClusterDelete?>(null) }
 
     // Standalone (non-clustered) panels, and panels inside a cluster card, both
     // lay out as an exact 3-column grid in portrait, by sizing each tile to a
@@ -210,7 +212,14 @@ fun HomeScreen(navController: NavController) {
                                             app = app,
                                             navController = navController,
                                             columns = columnsPerRow,
-                                            tileWidth = standaloneTileWidth
+                                            tileWidth = standaloneTileWidth,
+                                            onDelete = {
+                                                pendingClusterDelete = PendingClusterDelete(
+                                                    groupId = group.id,
+                                                    name = name,
+                                                    panelIds = panelsInCluster.map { it.id }
+                                                )
+                                            }
                                         )
                                     }
                                 }
@@ -236,7 +245,24 @@ fun HomeScreen(navController: NavController) {
             dismissButton = { TextButton(onClick = { pendingGroupDelete = null }) { Text("Cancel") } }
         )
     }
+
+    pendingClusterDelete?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { pendingClusterDelete = null },
+            title = { Text("Delete \"${pending.name}\"?") },
+            text = { Text("This removes all ${pending.panelIds.size} panels for this device.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    app.configRepository.removePanels(pending.groupId, pending.panelIds)
+                    pendingClusterDelete = null
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { pendingClusterDelete = null }) { Text("Cancel") } }
+        )
+    }
 }
+
+private data class PendingClusterDelete(val groupId: String, val name: String, val panelIds: List<String>)
 
 /** Renders a bordered card containing every panel in [panels] ([columns] per row), with [name] as a caption below. */
 @Composable
@@ -250,7 +276,8 @@ private fun ClusterCard(
     app: Z2mDashApplication,
     navController: NavController,
     columns: Int,
-    tileWidth: Dp
+    tileWidth: Dp,
+    onDelete: () -> Unit
 ) {
     val ageText = remember(panels, payloads, timestamps, nowMillis) {
         fun topicFor(panel: Panel): String? = when (panel) {
@@ -315,6 +342,13 @@ private fun ClusterCard(
                         " \u2022 $ageText",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete $name",
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }

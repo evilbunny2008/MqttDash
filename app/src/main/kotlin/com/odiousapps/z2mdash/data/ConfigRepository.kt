@@ -137,6 +137,19 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = updatedGroups, autoConfiguredDevices = remainingDevices)
     }
 
+    /** Removes a whole cluster's panels (e.g. every tile for one device) in a single atomic update. */
+    fun removePanels(groupId: String, panelIds: List<String>) = update { cfg ->
+        val idsToRemove = panelIds.toSet()
+        val updatedGroups = cfg.groups.map { g ->
+            if (g.id == groupId) g.copy(panels = g.panels.filterNot { it.id in idsToRemove }) else g
+        }
+        val remainingPanelIds = updatedGroups.flatMap { it.panels }.map { it.id }.toSet()
+        val remainingDevices = cfg.autoConfiguredDevices.filter { device ->
+            device.createdPanelIds.any { it in remainingPanelIds }
+        }
+        cfg.copy(groups = updatedGroups, autoConfiguredDevices = remainingDevices)
+    }
+
     /**
      * Atomically replaces everything owned by an auto-configured device: strips
      * its previous panels ([oldPanelIds] - wherever they currently live, in case
