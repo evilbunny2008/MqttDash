@@ -1,0 +1,13 @@
+{
+  "comment1": "This needs to be added to MQTT topic for the device as a retained message, that is zigbee2mqtt/SoilSensor_01/app",
+  "comment2": "moisture_min/max are the ideal moisture range for that plant and the app will blink rad if the reading is lower than min",
+  "comment3": "the app will blink blue if the value is above max, and turn green if the value is between min and max",
+  "name": "Plant Name",
+  "group": "Group Name",
+  "group_comment": "group_order is for the order that collections of panels will appear in a group",
+  "group_order": 1,
+  "moisture_min": 45,
+  "moisture_max": 65,
+  "labels": ["LQI","Humid","Temp","Moisture","Min","Max"],
+  "panels": ["linkquality", "humidity", "temperature", "soil_moisture","moisture_min","moisture_max"]
+}

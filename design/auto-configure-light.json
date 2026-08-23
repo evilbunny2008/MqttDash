@@ -1,0 +1,18 @@
+{
+  "comment": "This needs to be added to MQTT topic for the device as a retained message, that is zigbee2mqtt/Light_01/app",
+  "name": "Room1",
+  "group": "Lights",
+  "group_comment": "group_order is for the order that collections of panels will appear in a group",
+  "group_order": 1,
+  "panels": ["linkquality"],
+  "labels": ["LQI"],
+  "controls": [
+    {
+      "label": "Light",
+      "state_topic": "z2m2/Light_01",
+      "state_field": "state",
+      "on_payload": {"state": "ON"},
+      "off_payload": {"state": "OFF"}
+    }
+  ]
+}
