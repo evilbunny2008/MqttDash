@@ -1,6 +1,7 @@
 package com.odiousapps.z2mdash.ui.screens
 
 import android.content.res.Configuration
+import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import com.odiousapps.z2mdash.ui.components.SensorAlert
 import com.odiousapps.z2mdash.ui.components.SensorTile
 import com.odiousapps.z2mdash.ui.components.ToggleTile
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -63,6 +65,17 @@ fun HomeScreen(navController: NavController) {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val payloads by app.connectionManager.latestPayloads.collectAsState()
+    val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()
+
+    // Ticks once a minute purely to force the "updated N ago" captions to
+    // refresh even when no new MQTT message has arrived to trigger recomposition.
+    var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
 
     // Nothing on this screen can do anything without a broker - send the user
     // straight to Add Broker rather than showing them an unusable empty Home.
@@ -183,6 +196,8 @@ fun HomeScreen(navController: NavController) {
                                         panels = panelsInCluster,
                                         groupId = group.id,
                                         payloads = payloads,
+                                        timestamps = timestamps,
+                                        nowMillis = nowMillis,
                                         app = app,
                                         navController = navController,
                                         columns = columnsPerRow,
@@ -220,11 +235,26 @@ private fun ClusterCard(
     panels: List<Panel>,
     groupId: String,
     payloads: Map<String, String>,
+    timestamps: Map<String, Long>,
+    nowMillis: Long,
     app: Z2mDashApplication,
     navController: NavController,
     columns: Int,
     tileWidth: Dp
 ) {
+    val ageText = remember(panels, timestamps, nowMillis) {
+        val latestTimestamp = panels.mapNotNull { panel ->
+            val topic = when (panel) {
+                is Panel.Sensor -> panel.topic
+                is Panel.Toggle -> panel.stateTopic.takeIf { it.isNotBlank() }
+            }
+            topic?.let { timestamps["${panel.brokerId}|$it"] }
+        }.maxOrNull()
+        latestTimestamp?.let {
+            DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
@@ -245,7 +275,16 @@ private fun ClusterCard(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            Text(name, style = MaterialTheme.typography.titleSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = MaterialTheme.typography.titleSmall)
+                if (ageText != null) {
+                    Text(
+                        " \u2022 $ageText",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

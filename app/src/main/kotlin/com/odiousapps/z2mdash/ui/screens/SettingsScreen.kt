@@ -47,7 +47,7 @@ fun SettingsScreen(navController: NavController) {
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
         uri?.let {
-            context.contentResolver.openOutputStream(it)?.use { out ->
+            context.contentResolver.openOutputStream(it, "wt")?.use { out ->
                 out.write(app.configRepository.exportJson().toByteArray())
             }
             snackbarMessage = "Configuration exported"

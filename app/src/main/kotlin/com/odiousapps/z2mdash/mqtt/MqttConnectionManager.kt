@@ -23,6 +23,11 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
     private val _latestPayloads = MutableStateFlow<Map<String, String>>(emptyMap())
     val latestPayloads: StateFlow<Map<String, String>> = _latestPayloads
 
+    // When (device time, i.e. System.currentTimeMillis() at receipt) each topic's
+    // latest payload arrived - used to show "updated 2 hours ago" on the dashboard.
+    private val _latestPayloadTimestamps = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val latestPayloadTimestamps: StateFlow<Map<String, Long>> = _latestPayloadTimestamps
+
     private val _connectionStates = MutableStateFlow<Map<String, ConnectionState>>(emptyMap())
     val connectionStates: StateFlow<Map<String, ConnectionState>> = _connectionStates
 
@@ -87,7 +92,9 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
         }
         scope.launch(Dispatchers.Default) {
             conn.messages.collect { msg ->
-                _latestPayloads.update { it + (keyFor(broker.id, msg.topic) to msg.payload) }
+                val key = keyFor(broker.id, msg.topic)
+                _latestPayloads.update { it + (key to msg.payload) }
+                _latestPayloadTimestamps.update { it + (key to System.currentTimeMillis()) }
             }
         }
         return conn
