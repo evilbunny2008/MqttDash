@@ -71,7 +71,12 @@ class DeviceAutoConfigManager(
                 lastAppliedPayload = currentPayload,
                 createdPanelIds = newPanels.map { it.id }
             )
-            configRepository.applyDeviceAutoConfig(updatedDevice, targetGroupId, newPanels)
+            configRepository.applyDeviceAutoConfig(
+                oldPanelIds = device.createdPanelIds.toSet(),
+                updatedDevice = updatedDevice,
+                targetGroupId = targetGroupId,
+                newPanels = newPanels
+            )
         }
     }
 

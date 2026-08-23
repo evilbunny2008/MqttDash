@@ -146,7 +146,12 @@ fun DiscoverScreen(navController: NavController, initialBrokerId: String? = null
             lastAppliedPayload = appConfigPayload,
             createdPanelIds = newPanels.map { it.id }
         )
-        app.configRepository.applyDeviceAutoConfig(device, targetGroupId, newPanels)
+        app.configRepository.applyDeviceAutoConfig(
+            oldPanelIds = emptySet(),
+            updatedDevice = device,
+            targetGroupId = targetGroupId,
+            newPanels = newPanels
+        )
         return true
     }
 

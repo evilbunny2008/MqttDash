@@ -138,14 +138,20 @@ class ConfigRepository(private val context: Context) {
     }
 
     /**
-     * Atomically replaces everything owned by an autoconfigured device: strips
-     * its previous panels (wherever they currently live, in case the device's
-     * declared group changed) out of every group, adds the freshly-built [newPanels]
-     * into [targetGroupId], and records/updates the tracking entry in one state
-     * transition so there's no intermediate inconsistent state.
+     * Atomically replaces everything owned by an auto-configured device: strips
+     * its previous panels ([oldPanelIds] - wherever they currently live, in case
+     * the device's declared group changed) out of every group, adds the
+     * freshly-built [newPanels] into [targetGroupId], and records/updates the
+     * tracking entry ([updatedDevice], whose own createdPanelIds should be the
+     * *new* panels' IDs) in one state transition so there's no intermediate
+     * inconsistent state.
      */
-    fun applyDeviceAutoConfig(device: AutoConfiguredDevice, targetGroupId: String, newPanels: List<Panel>) = update { cfg ->
-        val oldPanelIds = device.createdPanelIds.toSet()
+    fun applyDeviceAutoConfig(
+        oldPanelIds: Set<String>,
+        updatedDevice: AutoConfiguredDevice,
+        targetGroupId: String,
+        newPanels: List<Panel>
+    ) = update { cfg ->
         val strippedGroups = cfg.groups.map { g ->
             if (oldPanelIds.isEmpty()) g else g.copy(panels = g.panels.filterNot { it.id in oldPanelIds })
         }
@@ -156,12 +162,12 @@ class ConfigRepository(private val context: Context) {
         }
 
         val existingIndex = cfg.autoConfiguredDevices.indexOfFirst {
-            it.brokerId == device.brokerId && it.appConfigTopic == device.appConfigTopic
+            it.brokerId == updatedDevice.brokerId && it.appConfigTopic == updatedDevice.appConfigTopic
         }
         val updatedDevices = if (existingIndex >= 0) {
-            cfg.autoConfiguredDevices.toMutableList().also { it[existingIndex] = device }
+            cfg.autoConfiguredDevices.toMutableList().also { it[existingIndex] = updatedDevice }
         } else {
-            cfg.autoConfiguredDevices + device
+            cfg.autoConfiguredDevices + updatedDevice
         }
 
         cfg.copy(groups = groupsWithNewPanels, autoConfiguredDevices = updatedDevices)
