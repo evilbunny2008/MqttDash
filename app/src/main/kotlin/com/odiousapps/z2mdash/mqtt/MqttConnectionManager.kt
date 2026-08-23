@@ -3,8 +3,11 @@ package com.odiousapps.z2mdash.mqtt
 import com.odiousapps.z2mdash.data.AppConfig
 import com.odiousapps.z2mdash.data.Broker
 import com.odiousapps.z2mdash.data.Panel
+import com.odiousapps.z2mdash.data.PayloadCacheEntry
+import com.odiousapps.z2mdash.data.PayloadCacheRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -16,16 +19,24 @@ import kotlinx.coroutines.launch
  * and aggregates incoming payloads/connection state into simple StateFlows the
  * Compose UI can collect directly.
  */
-class MqttConnectionManager(private val scope: CoroutineScope) {
+class MqttConnectionManager(
+    private val scope: CoroutineScope,
+    private val payloadCacheRepository: PayloadCacheRepository
+) {
 
     private val connections = mutableMapOf<String, MqttConnection>()
 
-    private val _latestPayloads = MutableStateFlow<Map<String, String>>(emptyMap())
+    // Seeded from disk so the dashboard has correct, already-varied "updated N
+    // ago" data to show immediately on launch, before any MQTT traffic (even
+    // retained messages) has arrived this session.
+    private val cachedOnStartup = payloadCacheRepository.load()
+
+    private val _latestPayloads = MutableStateFlow(cachedOnStartup.mapValues { it.value.payload })
     val latestPayloads: StateFlow<Map<String, String>> = _latestPayloads
 
     // When (device time, i.e. System.currentTimeMillis() at receipt) each topic's
     // latest payload arrived - used to show "updated 2 hours ago" on the dashboard.
-    private val _latestPayloadTimestamps = MutableStateFlow<Map<String, Long>>(emptyMap())
+    private val _latestPayloadTimestamps = MutableStateFlow(cachedOnStartup.mapValues { it.value.timestamp })
     val latestPayloadTimestamps: StateFlow<Map<String, Long>> = _latestPayloadTimestamps
 
     private val _connectionStates = MutableStateFlow<Map<String, ConnectionState>>(emptyMap())
@@ -81,6 +92,26 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
      */
     fun discoverAll(brokerId: String) {
         connections[brokerId]?.subscribe("#")
+    }
+
+    /** Periodically writes the current payload/timestamp state to disk. Call once at startup. */
+    fun startPersistingCache() {
+        scope.launch(Dispatchers.Default) {
+            while (true) {
+                delay(30_000)
+                persistCacheNow()
+            }
+        }
+    }
+
+    private fun persistCacheNow() {
+        val payloads = _latestPayloads.value
+        val timestamps = _latestPayloadTimestamps.value
+        val merged = payloads.mapNotNull { (key, payload) ->
+            val timestamp = timestamps[key] ?: return@mapNotNull null
+            key to PayloadCacheEntry(payload, timestamp)
+        }.toMap()
+        payloadCacheRepository.save(merged)
     }
 
     private fun createConnection(broker: Broker): MqttConnection {
