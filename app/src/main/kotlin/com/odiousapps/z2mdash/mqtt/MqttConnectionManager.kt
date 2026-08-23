@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * App-wide singleton (held by MqttDashApplication) that owns one MqttConnection
+ * App-wide singleton (held by Z2mDashApplication) that owns one MqttConnection
  * per configured broker, keeps subscriptions in sync with whatever panels exist,
  * and aggregates incoming payloads/connection state into simple StateFlows the
  * Compose UI can collect directly.

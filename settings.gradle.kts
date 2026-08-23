@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MqttDash"
+rootProject.name = "Z2mDash"
 include(":app")

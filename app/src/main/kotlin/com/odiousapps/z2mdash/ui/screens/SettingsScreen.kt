@@ -32,11 +32,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 
 @Composable
 fun SettingsScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     val context = LocalContext.current
     val config by app.configRepository.config.collectAsState()
 

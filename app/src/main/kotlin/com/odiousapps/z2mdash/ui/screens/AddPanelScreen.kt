@@ -40,7 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.Panel
 import com.odiousapps.z2mdash.data.TileIcon
 import java.util.UUID
@@ -48,7 +48,7 @@ import java.util.UUID
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPanelScreen(navController: NavController, groupId: String, panelId: String? = null) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
 
     val existing = remember(groupId, panelId, config) {

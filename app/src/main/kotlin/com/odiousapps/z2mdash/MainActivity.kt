@@ -9,7 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.odiousapps.z2mdash.service.MqttForegroundService
 import com.odiousapps.z2mdash.ui.navigation.AppNavHost
-import com.odiousapps.z2mdash.ui.theme.MqttDashTheme
+import com.odiousapps.z2mdash.ui.theme.Z2mDashTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -23,13 +23,13 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        val app = application as MqttDashApplication
+        val app = application as Z2mDashApplication
         if (app.configRepository.config.value.backgroundWorkEnabled) {
             ContextCompat.startForegroundService(this, Intent(this, MqttForegroundService::class.java))
         }
 
         setContent {
-            MqttDashTheme {
+            Z2mDashTheme {
                 AppNavHost()
             }
         }

@@ -23,13 +23,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.mqtt.ConnectionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrokersScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val states by app.connectionManager.connectionStates.collectAsState()
 

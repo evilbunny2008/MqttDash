@@ -31,13 +31,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.PanelGroup
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
 
     var renamingGroup by remember { mutableStateOf<PanelGroup?>(null) }

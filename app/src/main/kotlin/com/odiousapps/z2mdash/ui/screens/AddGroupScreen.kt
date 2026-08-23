@@ -24,14 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.PanelGroup
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddGroupScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     var name by remember { mutableStateOf("") }
 
     Scaffold(

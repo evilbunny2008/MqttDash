@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class MqttDashApplication : Application() {
+class Z2mDashApplication : Application() {
 
     val appScope = CoroutineScope(SupervisorJob())
 

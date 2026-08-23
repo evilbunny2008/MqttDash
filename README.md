@@ -1,21 +1,9 @@
-# MQTT Dash Clone
+# Z2M Dash
 
-A small, FOSS, MIT-licensed Android dashboard app for MQTT / Zigbee2MQTT, built
-as a starting point to replace a closed-source app that was moving toward
-encrypted/proprietary config files. No cloud, no account, no lock-in - your
-whole configuration is one plain JSON file you can export and re-import
-(Settings → Configuration Backup / Recovery).
-
-## Why HiveMQ's client instead of Paho
-
-Paho's Android MQTT client has a long-standing bug where its websocket
-transport's keepalive scheduling drifts under Android's background network
-throttling, silently dropping the connection (commonly reported as "disconnects
-every ~5 minutes"). `hivemq-mqtt-client` is actively maintained, supports MQTT
-3.1.1 and 5.0, and has its own ping/keepalive + automatic-reconnect state
-machine over TCP, SSL, WS and WSS transports, independent of that bug.
-
-See `mqtt/MqttConnection.kt` - that's the whole fix, in one file.
+A small, FOSS, MIT-licensed Android dashboard app for Zigbee2MQTT, built
+as a starting point to replace a closed-source apps. No cloud, no account,
+no lock-in - your whole configuration is one plain JSON file you can export
+and re-import (Settings → Configuration Backup / Recovery).
 
 ## Opening the project
 
@@ -50,17 +38,6 @@ See `mqtt/MqttConnection.kt` - that's the whole fix, in one file.
   changes.
 - No drag-to-reorder for groups/panels.
 - "Share configurations over MQTT" from the reference app isn't implemented.
-
-## A note on API surface
-
-This targets `hivemq-mqtt-client:1.3.17`, Compose BOM `2024.06.00`, Kotlin
-`1.9.24` and AGP `8.5.2` - current at time of writing. The HiveMQ client's
-fluent builder API (`.sslConfig()...applySslConfig()`,
-`.webSocketConfig()...applyWebSocketConfig()`,
-`.automaticReconnect()...applyAutomaticReconnect()`) is stable across recent
-1.3.x releases, but if you bump the dependency version and something doesn't
-compile, check https://hivemq.github.io/hivemq-mqtt-client/docs/client/ for the
-current method names - it's usually a rename, not a redesign.
 
 ## License
 

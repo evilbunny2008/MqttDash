@@ -43,7 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.AppConfig
 import com.odiousapps.z2mdash.data.AutoConfiguredDevice
 import com.odiousapps.z2mdash.data.JsonPath
@@ -59,7 +59,7 @@ import java.util.UUID
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as MqttDashApplication
+    val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val payloads by app.connectionManager.latestPayloads.collectAsState()
 
@@ -209,7 +209,7 @@ private fun ClusterCard(
     panels: List<Panel>,
     groupId: String,
     payloads: Map<String, String>,
-    app: MqttDashApplication,
+    app: Z2mDashApplication,
     navController: NavController,
     columns: Int,
     tileWidth: Dp
@@ -245,7 +245,7 @@ private fun PanelTile(
     panel: Panel,
     groupId: String,
     payloads: Map<String, String>,
-    app: MqttDashApplication,
+    app: Z2mDashApplication,
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
@@ -303,7 +303,7 @@ private fun PanelTile(
 
 /** Builds and stores the panels for a newly-accepted pending device, then clears it from the pending list. */
 private fun addPendingDevice(
-    app: MqttDashApplication,
+    app: Z2mDashApplication,
     config: AppConfig,
     payloads: Map<String, String>,
     pending: PendingAutoConfigDevice

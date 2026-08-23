@@ -8,7 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.odiousapps.z2mdash.MqttDashApplication
+import com.odiousapps.z2mdash.Z2mDashApplication
 
 /**
  * Keeps broker connections alive while the app is backgrounded. Toggled by
@@ -22,7 +22,7 @@ class MqttForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, buildNotification())
-        val app = application as MqttDashApplication
+        val app = application as Z2mDashApplication
         app.connectionManager.applyConfig(app.configRepository.config.value)
     }
 
