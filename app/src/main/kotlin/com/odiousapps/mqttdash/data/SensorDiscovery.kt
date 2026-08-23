@@ -74,7 +74,7 @@ object SensorDiscovery {
             val idealTopic = "$topic/ideal".takeIf { it in allTopics }
             val appTopic = "$topic/app".takeIf { it in allTopics }
             DiscoveredSensor(topic, fields, idealTopic, appTopic)
-        }.sortedBy { it.topic }
+        }.sortedWith(compareByDescending<DiscoveredSensor> { it.appConfigTopic != null }.thenBy { it.topic })
     }
 
     /** Parses a "<topic>/app" payload into a DeviceAppConfig, or null if it doesn't look like one. */
