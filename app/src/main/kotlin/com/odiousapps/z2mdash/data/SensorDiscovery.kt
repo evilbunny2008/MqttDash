@@ -57,6 +57,14 @@ object SensorDiscovery {
         // Falls back to suggestedLabel() for any field with no matching entry.
         val labels: List<String>,
         val rangePairs: Map<String, Pair<String, String>>,
+        // Optional. Parallel to panelFields by index - overrides which cluster
+        // that field renders in, instead of the device's overall [name]. Blank
+        // or missing entries fall back to [name] as before.
+        val panelClusters: List<String> = emptyList(),
+        // Optional. Parallel to panelFields by index - position within its
+        // cluster (lower sorts first). Missing/null entries fall back to
+        // [groupOrder], then declaration order.
+        val panelOrders: List<Int?> = emptyList(),
         // Optional. Toggle/command panels (blinds, plugs, anything with an
         // on/off-style command) declared alongside the sensor fields above.
         val controls: List<ControlConfig> = emptyList()
@@ -69,7 +77,16 @@ object SensorDiscovery {
         val onPayload: String,
         val offPayload: String,
         val stateTopic: String?,
-        val stateField: String?
+        val stateField: String?,
+        // Optional. Overrides which cluster this control renders in, instead of
+        // the device's overall name - lets one physical device (e.g. a combo
+        // light/fan switch) split into multiple dashboard clusters.
+        val cluster: String? = null,
+        // Optional. Position within its cluster (lower sorts first). Falls back
+        // to the device's overall group_order, then declaration order, if unset -
+        // sensor panels are otherwise always built before controls regardless of
+        // array position, so this is the only way to interleave them.
+        val order: Int? = null
     )
 
     // Topics matching these patterns are structural, not sensor data - skip them
@@ -107,6 +124,10 @@ object SensorDiscovery {
             val groupOrder = (obj["group_order"] as? JsonPrimitive)?.intOrNull
             val labelsArray = obj["labels"] as? JsonArray
             val labels = labelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+            val panelClustersArray = obj["panel_clusters"] as? JsonArray
+            val panelClusters = panelClustersArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+            val panelOrdersArray = obj["panel_order"] as? JsonArray
+            val panelOrders = panelOrdersArray?.map { (it as? JsonPrimitive)?.intOrNull } ?: emptyList()
             val numericKeys = obj.entries
                 .filter { (_, v) -> (v as? JsonPrimitive)?.doubleOrNull != null }
                 .map { it.key }
@@ -116,7 +137,7 @@ object SensorDiscovery {
                 val maxKey = "${base}_max"
                 if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
             }
-            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs, controls)
+            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs, panelClusters, panelOrders, controls)
         }
     } catch (_: Exception) {
         null
@@ -132,12 +153,14 @@ object SensorDiscovery {
         val offPayload = jsonValueToPayloadString(obj["off_payload"]) ?: "OFF"
         val stateTopic = (obj["state_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         val stateField = (obj["state_field"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        val cluster = (obj["cluster"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        val order = (obj["order"] as? JsonPrimitive)?.intOrNull
         // Zigbee2MQTT convention: commands go to "<state topic>/set" unless the
         // device explicitly overrides it with its own command_topic.
         val commandTopic = (obj["command_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
             ?: stateTopic?.let { "$it/set" }
             ?: return null
-        return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField)
+        return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField, cluster, order)
     }
 
     /** A JSON string primitive is used as-is; any other element (object/array/etc.) is re-serialized to its compact form. */
@@ -197,7 +220,7 @@ object SensorDiscovery {
         deviceConfig: DeviceAppConfig
     ): List<Panel> {
         val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
-        val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
+        val deviceClusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
 
         val sensorPanels: List<Panel> = deviceConfig.panelFields.mapIndexedNotNull { index, field ->
             val topic = when {
@@ -212,6 +235,8 @@ object SensorDiscovery {
 
             val label = deviceConfig.labels.getOrNull(index)?.takeIf { it.isNotBlank() }
                 ?: suggestedLabel(field)
+            val clusterName = deviceConfig.panelClusters.getOrNull(index)?.takeIf { it.isNotBlank() }
+                ?: deviceClusterName
 
             Panel.Sensor(
                 id = java.util.UUID.randomUUID().toString(),
@@ -225,7 +250,7 @@ object SensorDiscovery {
                 idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
                 idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
                 clusterName = clusterName,
-                displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
+                displayOrder = deviceConfig.panelOrders.getOrNull(index) ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
             )
         }
 
@@ -239,8 +264,8 @@ object SensorDiscovery {
                 offPayload = control.offPayload,
                 stateTopic = control.stateTopic ?: "",
                 stateJsonPath = control.stateField ?: "",
-                clusterName = clusterName,
-                displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
+                clusterName = control.cluster?.takeIf { it.isNotBlank() } ?: deviceClusterName,
+                displayOrder = control.order ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
             )
         }
 

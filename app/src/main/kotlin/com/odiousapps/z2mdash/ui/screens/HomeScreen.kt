@@ -189,10 +189,12 @@ fun HomeScreen(navController: NavController) {
                                 clusters.getOrPut(key) { mutableListOf() }.add(panel)
                             }
                             // Sort clusters/standalone tiles by their lowest displayOrder (falls
-                            // back to insertion order for anything left at the Int.MAX_VALUE default).
-                            val orderedClusters = clusters.values.sortedBy { bucket ->
-                                bucket.minOf { it.displayOrder }
-                            }
+                            // back to insertion order for anything left at the Int.MAX_VALUE default),
+                            // and also sort each cluster's own panels by displayOrder so panels can
+                            // be reordered *within* a cluster, not just relative to other clusters.
+                            val orderedClusters = clusters.values
+                                .map { bucket -> bucket.sortedBy { it.displayOrder } }
+                                .sortedBy { bucket -> bucket.minOf { it.displayOrder } }
 
                             orderedClusters.forEach { panelsInCluster ->
                                 val name = panelsInCluster.first().clusterName
