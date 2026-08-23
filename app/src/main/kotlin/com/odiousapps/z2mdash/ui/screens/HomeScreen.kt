@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -183,28 +184,35 @@ fun HomeScreen(navController: NavController) {
 
                             orderedClusters.forEach { panelsInCluster ->
                                 val name = panelsInCluster.first().clusterName
-                                if (name.isBlank()) {
-                                    PanelTile(
-                                        panel = panelsInCluster.first(),
-                                        groupId = group.id,
-                                        payloads = payloads,
-                                        app = app,
-                                        navController = navController,
-                                        modifier = Modifier.width(standaloneTileWidth)
-                                    )
-                                } else {
-                                    ClusterCard(
-                                        name = name,
-                                        panels = panelsInCluster,
-                                        groupId = group.id,
-                                        payloads = payloads,
-                                        timestamps = timestamps,
-                                        nowMillis = nowMillis,
-                                        app = app,
-                                        navController = navController,
-                                        columns = columnsPerRow,
-                                        tileWidth = standaloneTileWidth
-                                    )
+                                // Stable per-cluster identity, independent of list
+                                // position - without this, Compose can reuse another
+                                // cluster's remembered state (like ageText) when the
+                                // list reorders as devices are added/removed, since
+                                // it otherwise identifies composables by call position.
+                                key(panelsInCluster.first().id) {
+                                    if (name.isBlank()) {
+                                        PanelTile(
+                                            panel = panelsInCluster.first(),
+                                            groupId = group.id,
+                                            payloads = payloads,
+                                            app = app,
+                                            navController = navController,
+                                            modifier = Modifier.width(standaloneTileWidth)
+                                        )
+                                    } else {
+                                        ClusterCard(
+                                            name = name,
+                                            panels = panelsInCluster,
+                                            groupId = group.id,
+                                            payloads = payloads,
+                                            timestamps = timestamps,
+                                            nowMillis = nowMillis,
+                                            app = app,
+                                            navController = navController,
+                                            columns = columnsPerRow,
+                                            tileWidth = standaloneTileWidth
+                                        )
+                                    }
                                 }
                             }
                         }
