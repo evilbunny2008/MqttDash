@@ -132,6 +132,64 @@ object SensorDiscovery {
         else -> key.split("_").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
     }
 
+    /** Numeric field keys present in a raw topic payload - used to decide which
+     * topic (main sensor vs the app-config topic itself) a device-declared
+     * panel field should be read from. */
+    fun fieldKeysOf(payload: String): Set<String> = numericFieldsOf(payload).map { it.key }.toSet()
+
+    /**
+     * Builds the Sensor panels described by [deviceConfig]. Each field is looked
+     * up first in [sensorFieldKeys] (the main sensor topic), then in the
+     * app-config topic itself (covers fields like "moisture_min" that only
+     * exist in the config payload). Fields findable in neither are skipped.
+     * Any field that's part of a detected "<base>_min"/"<base>_max" pair gets
+     * wired up with an ideal range pointing at the app-config topic - except
+     * the min/max fields themselves, which would otherwise trivially compare
+     * against their own value. Pure function: callers decide where the
+     * resulting panels actually get stored.
+     */
+    fun buildPanels(
+        brokerId: String,
+        sensorTopic: String,
+        sensorFieldKeys: Set<String>,
+        appConfigTopic: String,
+        appConfigPayload: String?,
+        deviceConfig: DeviceAppConfig
+    ): List<Panel.Sensor> {
+        val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
+        val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
+
+        return deviceConfig.panelFields.mapIndexedNotNull { index, field ->
+            val topic = when {
+                field in sensorFieldKeys -> sensorTopic
+                appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
+                else -> null
+            } ?: return@mapIndexedNotNull null
+
+            val rangeBase = if (field !in rangeKeys) {
+                deviceConfig.rangePairs.keys.find { base -> field.contains(base, ignoreCase = true) }
+            } else null
+
+            val label = deviceConfig.labels.getOrNull(index)?.takeIf { it.isNotBlank() }
+                ?: suggestedLabel(field)
+
+            Panel.Sensor(
+                id = java.util.UUID.randomUUID().toString(),
+                label = label,
+                brokerId = brokerId,
+                topic = topic,
+                jsonPath = field,
+                unit = suggestedUnit(field),
+                icon = suggestedIcon(field),
+                idealRangeTopic = if (rangeBase != null) appConfigTopic else "",
+                idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
+                idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
+                clusterName = clusterName,
+                displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
+            )
+        }
+    }
+
     fun suggestedIcon(key: String): TileIcon = when {
         key.contains("moisture", ignoreCase = true) -> TileIcon.MOISTURE
         key.contains("humidity", ignoreCase = true) -> TileIcon.HUMIDITY

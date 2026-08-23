@@ -2,6 +2,7 @@ package com.odiousapps.mqttdash
 
 import android.app.Application
 import com.odiousapps.mqttdash.data.ConfigRepository
+import com.odiousapps.mqttdash.mqtt.DeviceAutoConfigManager
 import com.odiousapps.mqttdash.mqtt.MqttConnectionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -15,13 +16,17 @@ class MqttDashApplication : Application() {
         private set
     lateinit var connectionManager: MqttConnectionManager
         private set
+    lateinit var deviceAutoConfigManager: DeviceAutoConfigManager
+        private set
 
     override fun onCreate() {
         super.onCreate()
         configRepository = ConfigRepository(this)
         connectionManager = MqttConnectionManager(appScope)
+        deviceAutoConfigManager = DeviceAutoConfigManager(configRepository, connectionManager)
 
         connectionManager.applyConfig(configRepository.config.value)
+        deviceAutoConfigManager.start(appScope)
         appScope.launch {
             configRepository.config.collect { config ->
                 connectionManager.applyConfig(config)

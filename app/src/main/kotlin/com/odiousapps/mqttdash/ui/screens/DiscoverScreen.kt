@@ -36,7 +36,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,7 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
-import com.odiousapps.mqttdash.data.JsonPath
+import com.odiousapps.mqttdash.data.AutoConfiguredDevice
 import com.odiousapps.mqttdash.data.Panel
 import com.odiousapps.mqttdash.data.PanelGroup
 import com.odiousapps.mqttdash.data.SensorDiscovery
@@ -79,10 +78,6 @@ fun DiscoverScreen(navController: NavController) {
     val selections = remember { mutableStateMapOf<String, Boolean>() }
     val useIdealRange = remember { mutableStateMapOf<String, Boolean>() }
     val expandedTopics = remember { mutableStateMapOf<String, Boolean>() }
-    // Topics whose "Apply device config" button has been pressed - hidden from
-    // the list below so multiple devices can be applied in one visit without
-    // navigating away each time.
-    val appliedTopics = remember { mutableStateSetOf<String>() }
 
     // Kick off discovery ("#") the moment a broker is chosen, and let the user
     // re-trigger it (e.g. after powering on a device) with the refresh button.
@@ -95,7 +90,14 @@ fun DiscoverScreen(navController: NavController) {
         allPayloads.filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }
     }
     val discovered = remember(brokerPayloads) { SensorDiscovery.discoverSensors(brokerPayloads) }
-    val visibleSensors = discovered.filterNot { it.topic in appliedTopics }
+    // Devices already tracked as auto-configured (for this broker) are hidden
+    // permanently - the DeviceAutoConfigManager background reconciler keeps
+    // them up to date on its own from here on, no need to revisit this screen.
+    val visibleSensors = discovered.filterNot { sensor ->
+        config.autoConfiguredDevices.any {
+            it.brokerId == selectedBrokerId && it.appConfigTopic == sensor.appConfigTopic
+        }
+    }
     val selectedCount = selections.values.count { it }
 
     // Resolves (creating if needed) the group new panels should land in. Shared
@@ -289,15 +291,13 @@ fun DiscoverScreen(navController: NavController) {
                     val deviceConfig = appConfigPayload?.let { SensorDiscovery.parseDeviceAppConfig(it) }
 
                     if (isExpanded) {
-                        if (appConfigTopic != null && deviceConfig != null) {
+                        if (appConfigTopic != null && appConfigPayload != null && deviceConfig != null) {
                             Spacer(Modifier.height(4.dp))
                             OutlinedButton(
                                 onClick = {
                                     val targetGroupId = deviceConfig.group?.let { resolveGroupIdByName(it) }
                                         ?: resolveTargetGroupId()
-                                    applyDeviceConfig(
-                                        app = app,
-                                        targetGroupId = targetGroupId,
+                                    val newPanels = SensorDiscovery.buildPanels(
                                         brokerId = selectedBrokerId,
                                         sensorTopic = sensor.topic,
                                         sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
@@ -305,7 +305,14 @@ fun DiscoverScreen(navController: NavController) {
                                         appConfigPayload = appConfigPayload,
                                         deviceConfig = deviceConfig
                                     )
-                                    appliedTopics.add(sensor.topic)
+                                    val device = AutoConfiguredDevice(
+                                        brokerId = selectedBrokerId,
+                                        sensorTopic = sensor.topic,
+                                        appConfigTopic = appConfigTopic,
+                                        lastAppliedPayload = appConfigPayload,
+                                        createdPanelIds = newPanels.map { it.id }
+                                    )
+                                    app.configRepository.applyDeviceAutoConfig(device, targetGroupId, newPanels)
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -364,58 +371,5 @@ fun DiscoverScreen(navController: NavController) {
             }
             Spacer(Modifier.height(32.dp))
         }
-    }
-}
-
-/**
- * Creates one panel per field named in [deviceConfig].panelFields. Each field is
- * looked up first in the main sensor topic, then in the app-config topic itself
- * (covers fields like "moisture_min" that only exist in the config payload).
- * Any field that's part of a detected "<base>_min"/"<base>_max" pair gets wired
- * up with an ideal range pointing at the app-config topic - except the min/max
- * fields themselves, which would otherwise trivially compare against their own value.
- */
-private fun applyDeviceConfig(
-    app: MqttDashApplication,
-    targetGroupId: String,
-    brokerId: String,
-    sensorTopic: String,
-    sensorFieldKeys: Set<String>,
-    appConfigTopic: String,
-    appConfigPayload: String?,
-    deviceConfig: SensorDiscovery.DeviceAppConfig
-) {
-    val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
-    val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
-
-    deviceConfig.panelFields.forEachIndexed { index, field ->
-        val topic = when {
-            field in sensorFieldKeys -> sensorTopic
-            appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
-            else -> null
-        } ?: return@forEachIndexed
-
-        val rangeBase = if (field !in rangeKeys) {
-            deviceConfig.rangePairs.keys.find { base -> field.contains(base, ignoreCase = true) }
-        } else null
-
-        val label = deviceConfig.labels.getOrNull(index)?.takeIf { it.isNotBlank() }
-            ?: SensorDiscovery.suggestedLabel(field)
-
-        val panel = Panel.Sensor(
-            id = UUID.randomUUID().toString(),
-            label = label,
-            brokerId = brokerId,
-            topic = topic,
-            jsonPath = field,
-            unit = SensorDiscovery.suggestedUnit(field),
-            icon = SensorDiscovery.suggestedIcon(field),
-            idealRangeTopic = if (rangeBase != null) appConfigTopic else "",
-            idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
-            idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
-            clusterName = clusterName,
-            displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
-        )
-        app.configRepository.addPanelToGroup(targetGroupId, panel)
     }
 }

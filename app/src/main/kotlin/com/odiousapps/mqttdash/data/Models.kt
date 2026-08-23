@@ -95,9 +95,28 @@ data class PanelGroup(
     val collapsed: Boolean = false
 )
 
+/**
+ * Tracks a device that was configured via its own "<topic>/app" payload, so the
+ * app can keep watching that topic afterwards and automatically regenerate the
+ * device's panels if the device republishes a changed config - not just a
+ * one-off action taken from the Discover screen.
+ */
+@Serializable
+data class AutoConfiguredDevice(
+    val brokerId: String,
+    val sensorTopic: String,
+    val appConfigTopic: String,
+    // Raw payload last applied - compared against the live value to detect changes.
+    val lastAppliedPayload: String,
+    // IDs of the panels this device currently owns, so a reconfigure can
+    // cleanly remove the old set before adding the new one.
+    val createdPanelIds: List<String> = emptyList()
+)
+
 @Serializable
 data class AppConfig(
     val brokers: List<Broker> = emptyList(),
     val groups: List<PanelGroup> = emptyList(),
-    val backgroundWorkEnabled: Boolean = true
+    val backgroundWorkEnabled: Boolean = true,
+    val autoConfiguredDevices: List<AutoConfiguredDevice> = emptyList()
 )

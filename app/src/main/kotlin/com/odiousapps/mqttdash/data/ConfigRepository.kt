@@ -112,6 +112,36 @@ class ConfigRepository(private val context: Context) {
         })
     }
 
+    /**
+     * Atomically replaces everything owned by an auto-configured device: strips
+     * its previous panels (wherever they currently live, in case the device's
+     * declared group changed) out of every group, adds the freshly-built [newPanels]
+     * into [targetGroupId], and records/updates the tracking entry in one state
+     * transition so there's no intermediate inconsistent state.
+     */
+    fun applyDeviceAutoConfig(device: AutoConfiguredDevice, targetGroupId: String, newPanels: List<Panel>) = update { cfg ->
+        val oldPanelIds = device.createdPanelIds.toSet()
+        val strippedGroups = cfg.groups.map { g ->
+            if (oldPanelIds.isEmpty()) g else g.copy(panels = g.panels.filterNot { it.id in oldPanelIds })
+        }
+        val groupsWithNewPanels = if (strippedGroups.any { it.id == targetGroupId }) {
+            strippedGroups.map { g -> if (g.id == targetGroupId) g.copy(panels = g.panels + newPanels) else g }
+        } else {
+            strippedGroups
+        }
+
+        val existingIndex = cfg.autoConfiguredDevices.indexOfFirst {
+            it.brokerId == device.brokerId && it.appConfigTopic == device.appConfigTopic
+        }
+        val updatedDevices = if (existingIndex >= 0) {
+            cfg.autoConfiguredDevices.toMutableList().also { it[existingIndex] = device }
+        } else {
+            cfg.autoConfiguredDevices + device
+        }
+
+        cfg.copy(groups = groupsWithNewPanels, autoConfiguredDevices = updatedDevices)
+    }
+
     fun exportJson(): String = json.encodeToString(AppConfig.serializer(), _config.value)
 
     fun importJson(text: String) {
