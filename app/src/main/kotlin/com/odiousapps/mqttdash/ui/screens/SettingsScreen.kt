@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
@@ -90,7 +90,7 @@ fun SettingsScreen(navController: NavController) {
                 ListItem(
                     headlineContent = { Text("Groups") },
                     supportingContent = { Text("${config.groups.size} groups \u2013 rename or reorder them") },
-                    leadingContent = { Icon(Icons.Default.List, contentDescription = null) },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
                     modifier = Modifier.clickable { navController.navigate("groups") }
                 )
             }
