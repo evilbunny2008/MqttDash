@@ -149,8 +149,7 @@ fun DiscoverScreen(navController: NavController) {
                             sensor.fields.forEach { field ->
                                 val key = "${sensor.topic}|${field.key}"
                                 if (selections[key] == true) {
-                                    val applyIdeal = sensor.idealRangeTopic != null &&
-                                        (useIdealRange[key] ?: defaultUsesIdealRange(field.key))
+                                    val useIdeal = useIdealRange[key] ?: defaultUsesIdealRange(field.key)
                                     val panel = Panel.Sensor(
                                         id = UUID.randomUUID().toString(),
                                         label = SensorDiscovery.suggestedLabel(field.key),
@@ -159,7 +158,7 @@ fun DiscoverScreen(navController: NavController) {
                                         jsonPath = field.key,
                                         unit = SensorDiscovery.suggestedUnit(field.key),
                                         icon = SensorDiscovery.suggestedIcon(field.key),
-                                        idealRangeTopic = if (applyIdeal) sensor.idealRangeTopic!! else "",
+                                        idealRangeTopic = sensor.idealRangeTopic?.takeIf { useIdeal } ?: "",
                                         clusterName = sensor.topic.substringAfterLast("/")
                                     )
                                     app.configRepository.addPanelToGroup(targetGroupId, panel)
