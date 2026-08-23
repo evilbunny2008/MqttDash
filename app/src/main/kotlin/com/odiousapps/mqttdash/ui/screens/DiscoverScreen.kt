@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -78,6 +79,10 @@ fun DiscoverScreen(navController: NavController) {
     val selections = remember { mutableStateMapOf<String, Boolean>() }
     val useIdealRange = remember { mutableStateMapOf<String, Boolean>() }
     val expandedTopics = remember { mutableStateMapOf<String, Boolean>() }
+    // Topics whose "Apply device config" button has been pressed - hidden from
+    // the list below so multiple devices can be applied in one visit without
+    // navigating away each time.
+    val appliedTopics = remember { mutableStateSetOf<String>() }
 
     // Kick off discovery ("#") the moment a broker is chosen, and let the user
     // re-trigger it (e.g. after powering on a device) with the refresh button.
@@ -90,6 +95,7 @@ fun DiscoverScreen(navController: NavController) {
         allPayloads.filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }
     }
     val discovered = remember(brokerPayloads) { SensorDiscovery.discoverSensors(brokerPayloads) }
+    val visibleSensors = discovered.filterNot { it.topic in appliedTopics }
     val selectedCount = selections.values.count { it }
 
     // Resolves (creating if needed) the group new panels should land in. Shared
@@ -120,11 +126,11 @@ fun DiscoverScreen(navController: NavController) {
                     }
                 },
                 actions = {
-                    if (discovered.isNotEmpty()) {
-                        val allExpanded = discovered.all { expandedTopics[it.topic] ?: false }
+                    if (visibleSensors.isNotEmpty()) {
+                        val allExpanded = visibleSensors.all { expandedTopics[it.topic] ?: false }
                         IconButton(onClick = {
                             val newState = !allExpanded
-                            discovered.forEach { expandedTopics[it.topic] = newState }
+                            visibleSensors.forEach { expandedTopics[it.topic] = newState }
                         }) {
                             Icon(
                                 if (allExpanded) Icons.Default.UnfoldLess else Icons.Default.UnfoldMore,
@@ -145,7 +151,7 @@ fun DiscoverScreen(navController: NavController) {
                 Button(
                     onClick = {
                         val targetGroupId = resolveTargetGroupId()
-                        discovered.forEach { sensor ->
+                        visibleSensors.forEach { sensor ->
                             sensor.fields.forEach { field ->
                                 val key = "${sensor.topic}|${field.key}"
                                 if (selections[key] == true) {
@@ -245,13 +251,15 @@ fun DiscoverScreen(navController: NavController) {
                         "moment to arrive after subscribing - try the refresh icon above, " +
                         "or check the broker is actually retaining messages on those topics."
                 )
+            } else if (visibleSensors.isEmpty()) {
+                Text("All discovered devices have been applied \u2013 nothing left to configure here.")
             } else {
                 Text(
                     "Tick the fields you want as dashboard tiles, or use \"Apply device config\" " +
                         "if the device publishes its own <topic>/app config.",
                     style = MaterialTheme.typography.bodySmall
                 )
-                discovered.forEach { sensor ->
+                visibleSensors.forEach { sensor ->
                     Spacer(Modifier.height(16.dp))
                     val isExpanded = expandedTopics[sensor.topic] ?: false
                     val selectedInTopic = sensor.fields.count { selections["${sensor.topic}|${it.key}"] == true }
@@ -297,7 +305,7 @@ fun DiscoverScreen(navController: NavController) {
                                         appConfigPayload = appConfigPayload,
                                         deviceConfig = deviceConfig
                                     )
-                                    navController.popBackStack()
+                                    appliedTopics.add(sensor.topic)
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
