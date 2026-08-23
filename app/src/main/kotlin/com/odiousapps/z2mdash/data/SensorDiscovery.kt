@@ -55,7 +55,20 @@ object SensorDiscovery {
         // Optional. Parallel to panelFields by index - custom label per field.
         // Falls back to suggestedLabel() for any field with no matching entry.
         val labels: List<String>,
-        val rangePairs: Map<String, Pair<String, String>>
+        val rangePairs: Map<String, Pair<String, String>>,
+        // Optional. Toggle/command panels (blinds, plugs, anything with an
+        // on/off-style command) declared alongside the sensor fields above.
+        val controls: List<ControlConfig> = emptyList()
+    )
+
+    /** One toggle-style control declared in a device's "/app" payload's "controls" array. */
+    data class ControlConfig(
+        val label: String,
+        val commandTopic: String,
+        val onPayload: String,
+        val offPayload: String,
+        val stateTopic: String?,
+        val stateField: String?
     )
 
     // Topics matching these patterns are structural, not sensor data - skip them
@@ -81,8 +94,11 @@ object SensorDiscovery {
     fun parseDeviceAppConfig(payload: String): DeviceAppConfig? = try {
         val obj = Json.parseToJsonElement(payload) as? JsonObject
         val panelsArray = obj?.get("panels") as? JsonArray
-        val panelFields = panelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-        if (obj == null || panelFields.isNullOrEmpty()) {
+        val panelFields = panelsArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
+        val controlsArray = obj?.get("controls") as? JsonArray
+        val controls = controlsArray?.mapNotNull { parseControlConfig(it as? JsonObject) } ?: emptyList()
+
+        if (obj == null || (panelFields.isEmpty() && controls.isEmpty())) {
             null
         } else {
             val name = (obj["name"] as? JsonPrimitive)?.contentOrNull ?: ""
@@ -99,10 +115,25 @@ object SensorDiscovery {
                 val maxKey = "${base}_max"
                 if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
             }
-            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs)
+            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs, controls)
         }
     } catch (_: Exception) {
         null
+    }
+
+    private fun parseControlConfig(obj: JsonObject?): ControlConfig? {
+        if (obj == null) return null
+        val label = (obj["label"] as? JsonPrimitive)?.contentOrNull ?: "Toggle"
+        val onPayload = (obj["on_payload"] as? JsonPrimitive)?.contentOrNull ?: "ON"
+        val offPayload = (obj["off_payload"] as? JsonPrimitive)?.contentOrNull ?: "OFF"
+        val stateTopic = (obj["state_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        val stateField = (obj["state_field"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        // Zigbee2MQTT convention: commands go to "<state topic>/set" unless the
+        // device explicitly overrides it with its own command_topic.
+        val commandTopic = (obj["command_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+            ?: stateTopic?.let { "$it/set" }
+            ?: return null
+        return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField)
     }
 
     private fun isIgnorable(topic: String): Boolean {
@@ -135,15 +166,16 @@ object SensorDiscovery {
     fun fieldKeysOf(payload: String): Set<String> = numericFieldsOf(payload).map { it.key }.toSet()
 
     /**
-     * Builds the Sensor panels described by [deviceConfig]. Each field is looked
-     * up first in [sensorFieldKeys] (the main sensor topic), then in the
-     * app-config topic itself (covers fields like "moisture_min" that only
-     * exist in the config payload). Fields findable in neither are skipped.
-     * Any field that's part of a detected "<base>_min"/"<base>_max" pair gets
-     * wired up with an ideal range pointing at the app-config topic - except
-     * the min/max fields themselves, which would otherwise trivially compare
-     * against their own value. Pure function: callers decide where the
-     * resulting panels actually get stored.
+     * Builds the panels described by [deviceConfig]: Sensor panels from
+     * panelFields, plus Toggle panels from any declared controls. Each sensor
+     * field is looked up first in [sensorFieldKeys] (the main sensor topic),
+     * then in the app-config topic itself (covers fields like "moisture_min"
+     * that only exist in the config payload). Fields findable in neither are
+     * skipped. Any field that's part of a detected "<base>_min"/"<base>_max"
+     * pair gets wired up with an ideal range pointing at the app-config topic
+     * - except the min/max fields themselves, which would otherwise trivially
+     * compare against their own value. Pure function: callers decide where
+     * the resulting panels actually get stored.
      */
     fun buildPanels(
         brokerId: String,
@@ -152,11 +184,11 @@ object SensorDiscovery {
         appConfigTopic: String,
         appConfigPayload: String?,
         deviceConfig: DeviceAppConfig
-    ): List<Panel.Sensor> {
+    ): List<Panel> {
         val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
         val clusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
 
-        return deviceConfig.panelFields.mapIndexedNotNull { index, field ->
+        val sensorPanels: List<Panel> = deviceConfig.panelFields.mapIndexedNotNull { index, field ->
             val topic = when {
                 field in sensorFieldKeys -> sensorTopic
                 appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
@@ -185,6 +217,23 @@ object SensorDiscovery {
                 displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
             )
         }
+
+        val controlPanels: List<Panel> = deviceConfig.controls.map { control ->
+            Panel.Toggle(
+                id = java.util.UUID.randomUUID().toString(),
+                label = control.label,
+                brokerId = brokerId,
+                commandTopic = control.commandTopic,
+                onPayload = control.onPayload,
+                offPayload = control.offPayload,
+                stateTopic = control.stateTopic ?: "",
+                stateJsonPath = control.stateField ?: "",
+                clusterName = clusterName,
+                displayOrder = deviceConfig.groupOrder ?: Int.MAX_VALUE
+            )
+        }
+
+        return sensorPanels + controlPanels
     }
 
     fun suggestedIcon(key: String): TileIcon = when {
