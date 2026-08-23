@@ -67,13 +67,14 @@ fun HomeScreen(navController: NavController) {
     val payloads by app.connectionManager.latestPayloads.collectAsState()
     val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()
 
-    // Ticks every few seconds purely to force the "updated N ago" captions to
-    // refresh even when no new MQTT message has arrived to trigger recomposition -
-    // frequent enough that the seconds-resolution display below actually looks live.
+    // Ticks every second so "N seconds ago" counts up smoothly and resets the
+    // moment a fresh MQTT message (or last_seen field) actually arrives - the
+    // ageText computation below always re-derives from whichever timestamp is
+    // most recent, so a new message naturally overrides a stale running count.
     var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(5_000)
+            delay(1_000)
             nowMillis = System.currentTimeMillis()
         }
     }
