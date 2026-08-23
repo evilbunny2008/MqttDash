@@ -1,9 +1,8 @@
 ## Z2M Dash
 
-A small, FOSS, MIT-licensed Android dashboard app for Zigbee2MQTT, built
-as a starting point to replace a closed-source apps. No cloud, no account,
-no lock-in - your whole configuration is one plain JSON file you can export
-and re-import (Settings → Configuration Backup / Recovery).
+A Android dashboard app for Zigbee2MQTT, built to replace a closed-source apps.
+No cloud, no account, no lock-in - your whole configuration is either one plain
+JSON file you can export and re-import or auto-configure settings stored in MQTT.
 
 ## Only tested using Zigbee2MQTT
 
