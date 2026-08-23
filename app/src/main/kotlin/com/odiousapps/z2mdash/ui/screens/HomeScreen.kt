@@ -70,7 +70,7 @@ fun HomeScreen(navController: NavController) {
     // last one gets deleted), not on every recomposition.
     LaunchedEffect(config.brokers.isEmpty()) {
         if (config.brokers.isEmpty()) {
-            navController.navigate("broker/new")
+            navController.navigate("welcome")
         }
     }
 

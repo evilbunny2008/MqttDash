@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,7 +71,6 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
         )
     }
     var showAdditional by remember { mutableStateOf(false) }
-    var showAutoConfigPrompt by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var protocolExpanded by remember { mutableStateOf(false) }
 
@@ -101,11 +99,7 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
                 onClick = {
                     if (broker.host.isNotBlank()) {
                         app.configRepository.upsertBroker(broker)
-                        if (existing == null) {
-                            showAutoConfigPrompt = true
-                        } else {
-                            navController.popBackStack()
-                        }
+                        navController.popBackStack()
                     }
                 },
                 enabled = broker.host.isNotBlank(),
@@ -315,36 +309,6 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
 
             Spacer(Modifier.height(32.dp))
         }
-    }
-
-    if (showAutoConfigPrompt) {
-        AlertDialog(
-            onDismissRequest = {
-                showAutoConfigPrompt = false
-                navController.popBackStack()
-            },
-            title = { Text("Auto-configure sensors?") },
-            text = {
-                Text(
-                    "Scan this broker for devices that publish their own <topic>/app " +
-                        "configuration, and add their panels automatically."
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showAutoConfigPrompt = false
-                    val id = broker.id
-                    navController.popBackStack()
-                    navController.navigate("discover/$id")
-                }) { Text("Scan for devices") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showAutoConfigPrompt = false
-                    navController.popBackStack()
-                }) { Text("Not now") }
-            }
-        )
     }
 }
 
