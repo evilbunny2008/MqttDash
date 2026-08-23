@@ -121,7 +121,7 @@ fun DiscoverScreen(navController: NavController) {
                 },
                 actions = {
                     if (discovered.isNotEmpty()) {
-                        val allExpanded = discovered.all { expandedTopics[it.topic] ?: true }
+                        val allExpanded = discovered.all { expandedTopics[it.topic] ?: false }
                         IconButton(onClick = {
                             val newState = !allExpanded
                             discovered.forEach { expandedTopics[it.topic] = newState }
@@ -254,7 +254,7 @@ fun DiscoverScreen(navController: NavController) {
                 )
                 discovered.forEach { sensor ->
                     Spacer(Modifier.height(16.dp))
-                    val isExpanded = expandedTopics[sensor.topic] ?: true
+                    val isExpanded = expandedTopics[sensor.topic] ?: false
                     val selectedInTopic = sensor.fields.count { selections["${sensor.topic}|${it.key}"] == true }
                     Row(
                         modifier = Modifier
