@@ -63,7 +63,16 @@ class ConfigRepository(private val context: Context) {
     }
 
     fun deleteGroup(id: String) = update { cfg ->
-        cfg.copy(groups = cfg.groups.filterNot { it.id == id })
+        val remainingGroups = cfg.groups.filterNot { it.id == id }
+        // A deleted group takes its panels with it. Any auto-configured device
+        // whose panels all lived in that group has nothing left - drop its
+        // tracking record too, or the Discover screen would keep that topic
+        // hidden forever even though it has no panels anymore.
+        val remainingPanelIds = remainingGroups.flatMap { it.panels }.map { it.id }.toSet()
+        val remainingDevices = cfg.autoConfiguredDevices.filter { device ->
+            device.createdPanelIds.any { it in remainingPanelIds }
+        }
+        cfg.copy(groups = remainingGroups, autoConfiguredDevices = remainingDevices)
     }
 
     /** Moves a group earlier (offset -1) or later (offset +1) in the display order. */
@@ -107,9 +116,17 @@ class ConfigRepository(private val context: Context) {
     }
 
     fun removePanel(groupId: String, panelId: String) = update { cfg ->
-        cfg.copy(groups = cfg.groups.map { g ->
+        val updatedGroups = cfg.groups.map { g ->
             if (g.id == groupId) g.copy(panels = g.panels.filterNot { it.id == panelId }) else g
-        })
+        }
+        // Same reasoning as deleteGroup: if that was the last panel an
+        // auto-configured device owned, drop its tracking record too so the
+        // Discover screen stops hiding a topic with nothing left to show for it.
+        val remainingPanelIds = updatedGroups.flatMap { it.panels }.map { it.id }.toSet()
+        val remainingDevices = cfg.autoConfiguredDevices.filter { device ->
+            device.createdPanelIds.any { it in remainingPanelIds }
+        }
+        cfg.copy(groups = updatedGroups, autoConfiguredDevices = remainingDevices)
     }
 
     /**
