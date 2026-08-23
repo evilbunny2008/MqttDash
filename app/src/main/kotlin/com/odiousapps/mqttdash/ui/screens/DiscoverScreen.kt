@@ -65,14 +65,17 @@ private fun defaultUsesIdealRange(fieldKey: String): Boolean =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiscoverScreen(navController: NavController) {
+fun DiscoverScreen(navController: NavController, initialBrokerId: String? = null) {
     val app = LocalContext.current.applicationContext as MqttDashApplication
     val config by app.configRepository.config.collectAsState()
     val allPayloads by app.connectionManager.latestPayloads.collectAsState()
 
-    var selectedBrokerId by remember { mutableStateOf(config.brokers.firstOrNull()?.id ?: "") }
+    var selectedBrokerId by remember {
+        mutableStateOf(initialBrokerId ?: config.brokers.firstOrNull()?.id ?: "")
+    }
     var selectedGroupId by remember { mutableStateOf(config.groups.firstOrNull()?.id ?: NEW_GROUP_ID) }
     var newGroupName by remember { mutableStateOf("Discovered Sensors") }
+    var lastBulkApplyCount by remember { mutableStateOf<Int?>(null) }
 
     // key = "topic|fieldKey"
     val selections = remember { mutableStateMapOf<String, Boolean>() }
@@ -116,6 +119,35 @@ fun DiscoverScreen(navController: NavController) {
         val id = UUID.randomUUID().toString()
         app.configRepository.upsertGroup(PanelGroup(id = id, name = name))
         return id
+    }
+
+    // Shared by the per-device "Apply device config" button and the bulk
+    // "Auto-configure all found devices" button. Returns true if it actually
+    // applied something (false for topics with no valid /app config, so a bulk
+    // pass over every visible sensor can just skip those silently).
+    fun applyOneDevice(sensor: SensorDiscovery.DiscoveredSensor): Boolean {
+        val appConfigTopic = sensor.appConfigTopic ?: return false
+        val appConfigPayload = brokerPayloads[appConfigTopic] ?: return false
+        val deviceConfig = SensorDiscovery.parseDeviceAppConfig(appConfigPayload) ?: return false
+        val targetGroupId = deviceConfig.group?.let { resolveGroupIdByName(it) } ?: resolveTargetGroupId()
+        val newPanels = SensorDiscovery.buildPanels(
+            brokerId = selectedBrokerId,
+            sensorTopic = sensor.topic,
+            sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
+            appConfigTopic = appConfigTopic,
+            appConfigPayload = appConfigPayload,
+            deviceConfig = deviceConfig
+        )
+        if (newPanels.isEmpty()) return false
+        val device = AutoConfiguredDevice(
+            brokerId = selectedBrokerId,
+            sensorTopic = sensor.topic,
+            appConfigTopic = appConfigTopic,
+            lastAppliedPayload = appConfigPayload,
+            createdPanelIds = newPanels.map { it.id }
+        )
+        app.configRepository.applyDeviceAutoConfig(device, targetGroupId, newPanels)
+        return true
     }
 
     Scaffold(
@@ -261,6 +293,27 @@ fun DiscoverScreen(navController: NavController) {
                         "if the device publishes its own <topic>/app config.",
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (visibleSensors.any { it.appConfigTopic != null }) {
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val applied = visibleSensors.count { applyOneDevice(it) }
+                            lastBulkApplyCount = applied
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Auto-configure all found devices") }
+                    lastBulkApplyCount?.let { count ->
+                        Text(
+                            if (count == 0) {
+                                "No devices with a valid config were ready yet \u2013 try again in a moment, " +
+                                    "or use the refresh icon above."
+                            } else {
+                                "Auto-configured $count device${if (count == 1) "" else "s"}."
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
                 visibleSensors.forEach { sensor ->
                     Spacer(Modifier.height(16.dp))
                     val isExpanded = expandedTopics[sensor.topic] ?: false
@@ -294,26 +347,7 @@ fun DiscoverScreen(navController: NavController) {
                         if (appConfigTopic != null && appConfigPayload != null && deviceConfig != null) {
                             Spacer(Modifier.height(4.dp))
                             OutlinedButton(
-                                onClick = {
-                                    val targetGroupId = deviceConfig.group?.let { resolveGroupIdByName(it) }
-                                        ?: resolveTargetGroupId()
-                                    val newPanels = SensorDiscovery.buildPanels(
-                                        brokerId = selectedBrokerId,
-                                        sensorTopic = sensor.topic,
-                                        sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
-                                        appConfigTopic = appConfigTopic,
-                                        appConfigPayload = appConfigPayload,
-                                        deviceConfig = deviceConfig
-                                    )
-                                    val device = AutoConfiguredDevice(
-                                        brokerId = selectedBrokerId,
-                                        sensorTopic = sensor.topic,
-                                        appConfigTopic = appConfigTopic,
-                                        lastAppliedPayload = appConfigPayload,
-                                        createdPanelIds = newPanels.map { it.id }
-                                    )
-                                    app.configRepository.applyDeviceAutoConfig(device, targetGroupId, newPanels)
-                                },
+                                onClick = { applyOneDevice(sensor) },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(

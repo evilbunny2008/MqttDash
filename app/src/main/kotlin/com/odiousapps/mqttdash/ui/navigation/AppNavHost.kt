@@ -78,6 +78,9 @@ fun AppNavHost() {
             composable("settings") { SettingsScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
             composable("discover") { DiscoverScreen(navController) }
+            composable("discover/{brokerId}") { entry ->
+                DiscoverScreen(navController, initialBrokerId = entry.arguments?.getString("brokerId"))
+            }
             composable("groups") { GroupsScreen(navController) }
             composable("broker/{brokerId}") { entry ->
                 val id = entry.arguments?.getString("brokerId")
