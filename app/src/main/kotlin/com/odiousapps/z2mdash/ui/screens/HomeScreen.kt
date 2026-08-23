@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
@@ -130,7 +131,14 @@ fun HomeScreen(navController: NavController) {
             }
         }
 
-        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            // Extra bottom padding so the last group's trailing icons (add
+            // panel, delete group) can scroll clear of the FAB rather than
+            // sitting underneath it - the FAB floats on top of content and
+            // doesn't reserve space for itself otherwise.
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
             items(config.pendingAutoConfigDevices, key = { "${it.brokerId}|${it.appConfigTopic}" }) { pending ->
                 PendingDeviceBanner(
                     pending = pending,
