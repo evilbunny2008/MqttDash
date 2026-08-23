@@ -1,0 +1,51 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#f5f5f5"/>
+  
+  <!-- Dashboard Grid Pattern (background) -->
+  <g opacity="0.25" stroke="#333333" stroke-width="2">
+    <!-- Vertical lines -->
+    <line x1="128" y1="100" x2="128" y2="412"/>
+    <line x1="256" y1="100" x2="256" y2="412"/>
+    <line x1="384" y1="100" x2="384" y2="412"/>
+    
+    <!-- Horizontal lines -->
+    <line x1="100" y1="156" x2="412" y2="156"/>
+    <line x1="100" y1="256" x2="412" y2="256"/>
+    <line x1="100" y1="356" x2="412" y2="356"/>
+  </g>
+  
+  <!-- Grid dots -->
+  <g fill="#999999" opacity="0.3">
+    <circle cx="128" cy="156" r="4"/>
+    <circle cx="256" cy="156" r="4"/>
+    <circle cx="384" cy="156" r="4"/>
+    
+    <circle cx="128" cy="256" r="4"/>
+    <circle cx="256" cy="256" r="4"/>
+    <circle cx="384" cy="256" r="4"/>
+    
+    <circle cx="128" cy="356" r="4"/>
+    <circle cx="256" cy="356" r="4"/>
+    <circle cx="384" cy="356" r="4"/>
+  </g>
+  
+  <!-- Stylized Z with slight rotation -->
+  <g transform="translate(256, 256) rotate(-8)">
+    <!-- Top horizontal stroke -->
+    <line x1="-60" y1="-80" x2="60" y2="-80" stroke="#00BCD4" stroke-width="28" stroke-linecap="round"/>
+    
+    <!-- Diagonal stroke -->
+    <line x1="60" y1="-80" x2="-60" y2="80" stroke="#00BCD4" stroke-width="28" stroke-linecap="round"/>
+    
+    <!-- Bottom horizontal stroke -->
+    <line x1="-60" y1="80" x2="60" y2="80" stroke="#00BCD4" stroke-width="28" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Optional: subtle shadow/depth effect under the Z -->
+  <g transform="translate(256, 256) rotate(-8)" opacity="0.1">
+    <line x1="-60" y1="-80" x2="60" y2="-80" stroke="#000000" stroke-width="28" stroke-linecap="round" transform="translate(4, 4)"/>
+    <line x1="60" y1="-80" x2="-60" y2="80" stroke="#000000" stroke-width="28" stroke-linecap="round" transform="translate(4, 4)"/>
+    <line x1="-60" y1="80" x2="60" y2="80" stroke="#000000" stroke-width="28" stroke-linecap="round" transform="translate(4, 4)"/>
+  </g>
+</svg>
