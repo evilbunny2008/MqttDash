@@ -67,12 +67,13 @@ fun HomeScreen(navController: NavController) {
     val payloads by app.connectionManager.latestPayloads.collectAsState()
     val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()
 
-    // Ticks once a minute purely to force the "updated N ago" captions to
-    // refresh even when no new MQTT message has arrived to trigger recomposition.
+    // Ticks every few seconds purely to force the "updated N ago" captions to
+    // refresh even when no new MQTT message has arrived to trigger recomposition -
+    // frequent enough that the seconds-resolution display below actually looks live.
     var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000)
+            delay(5_000)
             nowMillis = System.currentTimeMillis()
         }
     }
@@ -259,7 +260,7 @@ private fun ClusterCard(
             deviceReportedMillis ?: timestamps[key]
         }.maxOrNull()
         latestTimestamp?.let {
-            DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
+            DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.SECOND_IN_MILLIS).toString()
         }
     }
 
