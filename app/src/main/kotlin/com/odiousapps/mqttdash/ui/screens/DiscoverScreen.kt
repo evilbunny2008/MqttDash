@@ -299,6 +299,15 @@ fun DiscoverScreen(navController: NavController) {
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Spacer(Modifier.height(8.dp))
+                        } else if (sensor.appConfigTopic != null && appConfigPayload != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Found ${sensor.appConfigTopic} but couldn't read it as a device config " +
+                                    "\u2013 check it's valid JSON with a non-empty \"panels\" array.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.height(8.dp))
                         }
 
                         sensor.fields.forEach { field ->

@@ -1,5 +1,6 @@
 package com.odiousapps.mqttdash.ui.screens
 
+import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -56,6 +58,20 @@ fun HomeScreen(navController: NavController) {
     val payloads by app.connectionManager.latestPayloads.collectAsState()
 
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
+
+    // Standalone (non-clustered) panels lay out as an exact 3-column grid in
+    // portrait, by sizing each tile to a third of the available width; in
+    // landscape they keep the old flexible fixed-160dp flow. Clustered panels
+    // keep their own internal layout untouched either way.
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val standaloneTileWidth = if (isPortrait) {
+        val groupHorizontalPadding = 12.dp * 2
+        val gapsBetweenThreeColumns = 8.dp * 2
+        (configuration.screenWidthDp.dp - groupHorizontalPadding - gapsBetweenThreeColumns) / 3
+    } else {
+        160.dp
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -129,7 +145,7 @@ fun HomeScreen(navController: NavController) {
                                         payloads = payloads,
                                         app = app,
                                         navController = navController,
-                                        modifier = Modifier.width(160.dp)
+                                        modifier = Modifier.width(standaloneTileWidth)
                                     )
                                 } else {
                                     ClusterCard(

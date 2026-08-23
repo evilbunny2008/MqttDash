@@ -8,9 +8,13 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.odiousapps.mqttdash.data.TileIcon
 
@@ -92,20 +97,34 @@ fun SensorTile(
     }
 
     Surface(
-        modifier = modifier.combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() }),
+        modifier = modifier
+            .heightIn(min = 120.dp)
+            .combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() }),
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
         tonalElevation = if (flashingAlertColor != null || alert == SensorAlert.IN_RANGE) 0.dp else 1.dp
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth().fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Icon(iconFor(icon), contentDescription = null)
             Spacer(Modifier.height(8.dp))
             Text(
                 if (unit.isNotBlank()) "$value $unit" else value,
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(4.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -121,16 +140,28 @@ fun ToggleTile(
     onLongPress: (() -> Unit)? = null
 ) {
     Surface(
-        modifier = modifier.combinedClickable(onClick = onToggle, onLongClick = { onLongPress?.invoke() }),
+        modifier = modifier
+            .heightIn(min = 120.dp)
+            .combinedClickable(onClick = onToggle, onLongClick = { onLongPress?.invoke() }),
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth().fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Icon(iconFor(icon), contentDescription = null)
             Spacer(Modifier.height(4.dp))
             Switch(checked = isOn, onCheckedChange = { onToggle() })
             Spacer(Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
