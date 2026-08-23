@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
@@ -59,16 +59,17 @@ fun HomeScreen(navController: NavController) {
 
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
 
-    // Standalone (non-clustered) panels lay out as an exact 3-column grid in
-    // portrait, by sizing each tile to a third of the available width; in
-    // landscape they keep the old flexible fixed-160dp flow. Clustered panels
-    // keep their own internal layout untouched either way.
+    // Standalone (non-clustered) panels, and panels inside a cluster card, both
+    // lay out as an exact 3-column grid in portrait, by sizing each tile to a
+    // third of the available width; in landscape they keep the old fixed-160dp
+    // (standalone) / 2-column (cluster) layout.
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val columnsPerRow = if (isPortrait) 3 else 2
     val standaloneTileWidth = if (isPortrait) {
         val groupHorizontalPadding = 12.dp * 2
-        val gapsBetweenThreeColumns = 8.dp * 2
-        (configuration.screenWidthDp.dp - groupHorizontalPadding - gapsBetweenThreeColumns) / 3
+        val gapsBetweenColumns = 8.dp * (columnsPerRow - 1)
+        (configuration.screenWidthDp.dp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
     } else {
         160.dp
     }
@@ -154,7 +155,9 @@ fun HomeScreen(navController: NavController) {
                                         groupId = group.id,
                                         payloads = payloads,
                                         app = app,
-                                        navController = navController
+                                        navController = navController,
+                                        columns = columnsPerRow,
+                                        tileWidth = standaloneTileWidth
                                     )
                                 }
                             }
@@ -181,7 +184,7 @@ fun HomeScreen(navController: NavController) {
     }
 }
 
-/** Renders a bordered card containing every panel in [panels] (2 per row), with [name] as a caption below. */
+/** Renders a bordered card containing every panel in [panels] ([columns] per row), with [name] as a caption below. */
 @Composable
 private fun ClusterCard(
     name: String,
@@ -189,15 +192,16 @@ private fun ClusterCard(
     groupId: String,
     payloads: Map<String, String>,
     app: MqttDashApplication,
-    navController: NavController
+    navController: NavController,
+    columns: Int,
+    tileWidth: Dp
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        tonalElevation = 1.dp,
-        modifier = Modifier.widthIn(max = 340.dp)
+        tonalElevation = 1.dp
     ) {
         Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            panels.chunked(2).forEach { row ->
+            panels.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { panel ->
                         PanelTile(
@@ -206,7 +210,7 @@ private fun ClusterCard(
                             payloads = payloads,
                             app = app,
                             navController = navController,
-                            modifier = Modifier.width(150.dp)
+                            modifier = Modifier.width(tileWidth)
                         )
                     }
                 }

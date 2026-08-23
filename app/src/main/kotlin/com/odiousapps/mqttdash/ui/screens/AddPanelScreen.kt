@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,7 +99,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                 title = { Text(if (isEditing) "Edit Panel" else "Add Panel") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -182,7 +183,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         onValueChange = {},
                         label = { Text("Broker") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brokerExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(expanded = brokerExpanded, onDismissRequest = { brokerExpanded = false }) {
                         config.brokers.forEach { b ->
@@ -220,7 +221,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         onValueChange = {},
                         label = { Text("Icon") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = iconExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(expanded = iconExpanded, onDismissRequest = { iconExpanded = false }) {
                         TileIcon.values().forEach { ic ->
@@ -331,7 +332,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                     )
                 }
 
-                if (isEditing && existing != null) {
+                if (existing != null) {
                     Spacer(Modifier.height(24.dp))
                     OutlinedButton(
                         onClick = {

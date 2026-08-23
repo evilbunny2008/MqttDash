@@ -7,8 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Divider
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -39,7 +39,7 @@ fun BrokersScreen(navController: NavController) {
                 title = { Text("Brokers") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -58,7 +58,7 @@ fun BrokersScreen(navController: NavController) {
                     supportingContent = { Text("${broker.host}:${broker.port} \u00b7 ${broker.protocol} \u00b7 $state") },
                     modifier = Modifier.clickable { navController.navigate("broker/${broker.id}") }
                 )
-                Divider()
+                HorizontalDivider()
             }
         }
     }

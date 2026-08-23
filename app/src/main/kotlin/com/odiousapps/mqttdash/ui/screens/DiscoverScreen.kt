@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
@@ -22,6 +22,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,7 +106,7 @@ fun DiscoverScreen(navController: NavController) {
                 title = { Text("Discover Sensors") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -177,7 +178,7 @@ fun DiscoverScreen(navController: NavController) {
                     onValueChange = {},
                     label = { Text("Broker") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = brokerExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 )
                 ExposedDropdownMenu(expanded = brokerExpanded, onDismissRequest = { brokerExpanded = false }) {
                     config.brokers.forEach { b ->
@@ -203,7 +204,7 @@ fun DiscoverScreen(navController: NavController) {
                     onValueChange = {},
                     label = { Text("Add panels to group") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupExpanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                    modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 )
                 ExposedDropdownMenu(expanded = groupExpanded, onDismissRequest = { groupExpanded = false }) {
                     config.groups.forEach { g ->
@@ -266,11 +267,12 @@ fun DiscoverScreen(navController: NavController) {
                         )
                     }
 
-                    val appConfigPayload = sensor.appConfigTopic?.let { brokerPayloads[it] }
+                    val appConfigTopic = sensor.appConfigTopic
+                    val appConfigPayload = appConfigTopic?.let { brokerPayloads[it] }
                     val deviceConfig = appConfigPayload?.let { SensorDiscovery.parseDeviceAppConfig(it) }
 
                     if (isExpanded) {
-                        if (deviceConfig != null && sensor.appConfigTopic != null) {
+                        if (appConfigTopic != null && deviceConfig != null) {
                             Spacer(Modifier.height(4.dp))
                             OutlinedButton(
                                 onClick = {
@@ -280,7 +282,7 @@ fun DiscoverScreen(navController: NavController) {
                                         brokerId = selectedBrokerId,
                                         sensorTopic = sensor.topic,
                                         sensorFieldKeys = sensor.fields.map { it.key }.toSet(),
-                                        appConfigTopic = sensor.appConfigTopic,
+                                        appConfigTopic = appConfigTopic,
                                         appConfigPayload = appConfigPayload,
                                         deviceConfig = deviceConfig
                                     )
@@ -295,14 +297,14 @@ fun DiscoverScreen(navController: NavController) {
                             }
                             Text(
                                 "Creates ${deviceConfig.panelFields.size} panel(s) exactly as listed in " +
-                                    "${sensor.appConfigTopic}, skipping the checkboxes below.",
+                                    "${appConfigTopic}, skipping the checkboxes below.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Spacer(Modifier.height(8.dp))
-                        } else if (sensor.appConfigTopic != null && appConfigPayload != null) {
+                        } else if (appConfigTopic != null && appConfigPayload != null) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Found ${sensor.appConfigTopic} but couldn't read it as a device config " +
+                                "Found ${appConfigTopic} but couldn't read it as a device config " +
                                     "\u2013 check it's valid JSON with a non-empty \"panels\" array.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
