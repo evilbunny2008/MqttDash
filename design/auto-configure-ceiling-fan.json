@@ -7,7 +7,7 @@
   "panels": ["linkquality"],
   "labels": ["LQI"],
   "panel_clusters": ["Light"],
-  "panel_order": [4]
+  "panel_order": [4],
   "controls": [
     {
       "label": "Low",
