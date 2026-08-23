@@ -1,32 +1,46 @@
 {
-  "comment": "This needs to be added to MQTT topic for the device as a retained message, that is zigbee2mqtt/Fan_01/app",
+  "comment1": "This is an example of a combined light and 3 speed ceiling fan switch",
+  "comment2": "This needs to be added to MQTT topic for the device as a retained message, that is zigbee2mqtt/Light_04/app",
   "name": "Ceiling Fan",
-  "group": "Fans",
-  "group_comment": "group_order is for the order that collections of panels will appear in a group",
-  "group_order": 1,
-  "panels": [],
-  "labels": [],
+  "group": "Lights n Stuff",
+  "group_order": 3,
+  "panels": ["linkquality"],
+  "labels": ["LQI"],
+  "panel_clusters": ["Light"],
+  "panel_order": [4]
   "controls": [
     {
       "label": "Low",
-      "state_topic": "z2m2/Fan_01",
+      "order": 1,
+      "state_topic": "z2m2/Light_04",
       "state_field": "state_l3",
       "on_payload": {"state_l3": "ON"},
       "off_payload": {"state_l3": "OFF"}
     },
     {
       "label": "Medium",
-      "state_topic": "z2m2/Fan_01",
+      "order": 2,
+      "state_topic": "z2m2/Light_04",
       "state_field": "state_l4",
       "on_payload": {"state_l4": "ON"},
       "off_payload": {"state_l4": "OFF"}
     },
     {
       "label": "High",
-      "state_topic": "z2m2/Fan_01",
+      "order": 3,
+      "state_topic": "z2m2/Light_04",
       "state_field": "state_l2",
       "on_payload": {"state_l2": "ON"},
       "off_payload": {"state_l2": "OFF"}
+    },
+    {
+      "label": "Light",
+      "order": 5,
+      "cluster": "Light",
+      "state_topic": "z2m2/Light_04",
+      "state_field": "state_l1",
+      "on_payload": {"state_l1": "ON"},
+      "off_payload": {"state_l1": "OFF"}
     }
   ]
 }
