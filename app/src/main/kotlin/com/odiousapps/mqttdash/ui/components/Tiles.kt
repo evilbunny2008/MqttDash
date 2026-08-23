@@ -112,7 +112,7 @@ fun SensorTile(
             Icon(iconFor(icon), contentDescription = null)
             Spacer(Modifier.height(8.dp))
             Text(
-                if (unit.isNotBlank()) "$value $unit" else value,
+                if (unit.isNotBlank()) "$value$unit" else value,
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
