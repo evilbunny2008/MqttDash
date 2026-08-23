@@ -159,6 +159,37 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = groupsWithNewPanels, autoConfiguredDevices = updatedDevices)
     }
 
+    /** Adds a newly-seen "<topic>/app" to the pending list, if not already there. */
+    fun addPendingAutoConfigDevice(device: PendingAutoConfigDevice) = update { cfg ->
+        val exists = cfg.pendingAutoConfigDevices.any {
+            it.brokerId == device.brokerId && it.appConfigTopic == device.appConfigTopic
+        }
+        if (exists) cfg else cfg.copy(pendingAutoConfigDevices = cfg.pendingAutoConfigDevices + device)
+    }
+
+    fun removePendingAutoConfigDevice(brokerId: String, appConfigTopic: String) = update { cfg ->
+        cfg.copy(
+            pendingAutoConfigDevices = cfg.pendingAutoConfigDevices.filterNot {
+                it.brokerId == brokerId && it.appConfigTopic == appConfigTopic
+            }
+        )
+    }
+
+    /** User declined a pending device - drop it from the pending list and remember not to re-prompt. */
+    fun ignoreAppConfigTopic(brokerId: String, appConfigTopic: String) = update { cfg ->
+        val key = "$brokerId|$appConfigTopic"
+        cfg.copy(
+            ignoredAppConfigTopics = if (key in cfg.ignoredAppConfigTopics) {
+                cfg.ignoredAppConfigTopics
+            } else {
+                cfg.ignoredAppConfigTopics + key
+            },
+            pendingAutoConfigDevices = cfg.pendingAutoConfigDevices.filterNot {
+                it.brokerId == brokerId && it.appConfigTopic == appConfigTopic
+            }
+        )
+    }
+
     fun exportJson(): String = json.encodeToString(AppConfig.serializer(), _config.value)
 
     fun importJson(text: String) {

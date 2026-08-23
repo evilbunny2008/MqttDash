@@ -44,11 +44,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.mqttdash.MqttDashApplication
+import com.odiousapps.mqttdash.data.AppConfig
+import com.odiousapps.mqttdash.data.AutoConfiguredDevice
 import com.odiousapps.mqttdash.data.JsonPath
 import com.odiousapps.mqttdash.data.Panel
+import com.odiousapps.mqttdash.data.PanelGroup
+import com.odiousapps.mqttdash.data.PendingAutoConfigDevice
+import com.odiousapps.mqttdash.data.SensorDiscovery
 import com.odiousapps.mqttdash.ui.components.SensorAlert
 import com.odiousapps.mqttdash.ui.components.SensorTile
 import com.odiousapps.mqttdash.ui.components.ToggleTile
+import java.util.UUID
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -94,6 +100,13 @@ fun HomeScreen(navController: NavController) {
         }
 
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+            items(config.pendingAutoConfigDevices, key = { "${it.brokerId}|${it.appConfigTopic}" }) { pending ->
+                PendingDeviceBanner(
+                    pending = pending,
+                    onAdd = { addPendingDevice(app, config, payloads, pending) },
+                    onIgnore = { app.configRepository.ignoreAppConfigTopic(pending.brokerId, pending.appConfigTopic) }
+                )
+            }
             items(config.groups, key = { it.id }) { group ->
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Row(
@@ -284,6 +297,77 @@ private fun PanelTile(
                 },
                 onLongPress = { navController.navigate("group/$groupId/panel/${panel.id}") }
             )
+        }
+    }
+}
+
+/** Builds and stores the panels for a newly-accepted pending device, then clears it from the pending list. */
+private fun addPendingDevice(
+    app: MqttDashApplication,
+    config: AppConfig,
+    payloads: Map<String, String>,
+    pending: PendingAutoConfigDevice
+) {
+    val appConfigPayload = payloads["${pending.brokerId}|${pending.appConfigTopic}"] ?: return
+    val deviceConfig = SensorDiscovery.parseDeviceAppConfig(appConfigPayload) ?: return
+    val sensorPayload = payloads["${pending.brokerId}|${pending.sensorTopic}"]
+    val sensorFieldKeys = sensorPayload?.let { SensorDiscovery.fieldKeysOf(it) } ?: emptySet()
+
+    val newPanels = SensorDiscovery.buildPanels(
+        brokerId = pending.brokerId,
+        sensorTopic = pending.sensorTopic,
+        sensorFieldKeys = sensorFieldKeys,
+        appConfigTopic = pending.appConfigTopic,
+        appConfigPayload = appConfigPayload,
+        deviceConfig = deviceConfig
+    )
+    if (newPanels.isEmpty()) return
+
+    val targetGroupId = deviceConfig.group?.let { name ->
+        config.groups.find { it.name.equals(name, ignoreCase = true) }?.id
+            ?: UUID.randomUUID().toString().also { id ->
+                app.configRepository.upsertGroup(PanelGroup(id = id, name = name))
+            }
+    } ?: config.groups.firstOrNull()?.id
+        ?: UUID.randomUUID().toString().also { id ->
+            app.configRepository.upsertGroup(PanelGroup(id = id, name = "Discovered Sensors"))
+        }
+
+    val device = AutoConfiguredDevice(
+        brokerId = pending.brokerId,
+        sensorTopic = pending.sensorTopic,
+        appConfigTopic = pending.appConfigTopic,
+        lastAppliedPayload = appConfigPayload,
+        createdPanelIds = newPanels.map { it.id }
+    )
+    app.configRepository.applyDeviceAutoConfig(device, targetGroupId, newPanels)
+    app.configRepository.removePendingAutoConfigDevice(pending.brokerId, pending.appConfigTopic)
+}
+
+/** A dismissible card prompting the user to accept or ignore a newly-detected auto-config device. */
+@Composable
+private fun PendingDeviceBanner(
+    pending: PendingAutoConfigDevice,
+    onAdd: () -> Unit,
+    onIgnore: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("New device found", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "\"${pending.deviceName}\" (${pending.appConfigTopic}) published its own dashboard config.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onIgnore) { Text("Ignore") }
+                TextButton(onClick = onAdd) { Text("Add") }
+            }
         }
     }
 }

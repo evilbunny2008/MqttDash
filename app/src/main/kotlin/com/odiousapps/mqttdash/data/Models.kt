@@ -113,10 +113,27 @@ data class AutoConfiguredDevice(
     val createdPanelIds: List<String> = emptyList()
 )
 
+/**
+ * A "<topic>/app" was seen for the first time (parses successfully, not
+ * already auto-configured, not previously dismissed) - waiting on the user to
+ * accept or ignore it, surfaced as a Home screen banner and a notification.
+ */
+@Serializable
+data class PendingAutoConfigDevice(
+    val brokerId: String,
+    val sensorTopic: String,
+    val appConfigTopic: String,
+    val deviceName: String
+)
+
 @Serializable
 data class AppConfig(
     val brokers: List<Broker> = emptyList(),
     val groups: List<PanelGroup> = emptyList(),
     val backgroundWorkEnabled: Boolean = true,
-    val autoConfiguredDevices: List<AutoConfiguredDevice> = emptyList()
+    val autoConfiguredDevices: List<AutoConfiguredDevice> = emptyList(),
+    val pendingAutoConfigDevices: List<PendingAutoConfigDevice> = emptyList(),
+    // "brokerId|appConfigTopic" composite keys the user has explicitly dismissed,
+    // so a declined device isn't re-prompted on every subsequent scan.
+    val ignoredAppConfigTopics: List<String> = emptyList()
 )

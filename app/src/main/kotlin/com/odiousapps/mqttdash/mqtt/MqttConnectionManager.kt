@@ -38,6 +38,11 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
         config.brokers.forEach { broker ->
             val conn = connections.getOrPut(broker.id) { createConnection(broker) }
             if (broker.autoConnect) conn.connect()
+            // Subscribed to everything continuously (not just when the Discover
+            // screen is open) so new "<topic>/app" devices can be detected and
+            // prompted for in the background. Means every message the broker
+            // publishes flows through the app now, not just ones panels ask for.
+            conn.subscribe("#")
         }
 
         config.groups.flatMap { it.panels }.forEach { panel ->

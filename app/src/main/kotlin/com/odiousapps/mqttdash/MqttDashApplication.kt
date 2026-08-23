@@ -23,7 +23,7 @@ class MqttDashApplication : Application() {
         super.onCreate()
         configRepository = ConfigRepository(this)
         connectionManager = MqttConnectionManager(appScope)
-        deviceAutoConfigManager = DeviceAutoConfigManager(configRepository, connectionManager)
+        deviceAutoConfigManager = DeviceAutoConfigManager(this, configRepository, connectionManager)
 
         connectionManager.applyConfig(configRepository.config.value)
         deviceAutoConfigManager.start(appScope)
