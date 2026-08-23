@@ -11,7 +11,7 @@ when there is other software in the mix, like Home Assistant
 
 ## Screen shot
 
-<img width="300px" src="https://github.com/evilbunny2008/weeWXWeatherApp/raw/master/design/Screenshot_20260823-223346.png">
+<img width="300px" src="https://github.com/evilbunny2008/Z2mDash/raw/master/design/Screenshot_20260823-223346.png">
 
 ## License
 
