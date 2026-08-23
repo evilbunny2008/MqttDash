@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.odiousapps.mqttdash"
+    namespace = "com.odiousapps.z2mdash"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.odiousapps.mqttdash"
+        applicationId = "com.odiousapps.z2mdash"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
