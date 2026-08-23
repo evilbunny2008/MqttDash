@@ -2,6 +2,7 @@ package com.odiousapps.z2mdash.data
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -124,8 +125,11 @@ object SensorDiscovery {
     private fun parseControlConfig(obj: JsonObject?): ControlConfig? {
         if (obj == null) return null
         val label = (obj["label"] as? JsonPrimitive)?.contentOrNull ?: "Toggle"
-        val onPayload = (obj["on_payload"] as? JsonPrimitive)?.contentOrNull ?: "ON"
-        val offPayload = (obj["off_payload"] as? JsonPrimitive)?.contentOrNull ?: "OFF"
+        // Accepts either a plain string ("ON") or a real JSON object
+        // ({"state":"OPEN"}) - objects get serialized to their compact string
+        // form, since that's what actually gets published as the MQTT payload.
+        val onPayload = jsonValueToPayloadString(obj["on_payload"]) ?: "ON"
+        val offPayload = jsonValueToPayloadString(obj["off_payload"]) ?: "OFF"
         val stateTopic = (obj["state_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         val stateField = (obj["state_field"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         // Zigbee2MQTT convention: commands go to "<state topic>/set" unless the
@@ -134,6 +138,13 @@ object SensorDiscovery {
             ?: stateTopic?.let { "$it/set" }
             ?: return null
         return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField)
+    }
+
+    /** A JSON string primitive is used as-is; any other element (object/array/etc.) is re-serialized to its compact form. */
+    private fun jsonValueToPayloadString(element: JsonElement?): String? = when (element) {
+        null -> null
+        is JsonPrimitive -> element.contentOrNull ?: element.toString()
+        else -> element.toString()
     }
 
     private fun isIgnorable(topic: String): Boolean {

@@ -409,7 +409,13 @@ private fun PanelTile(
         is Panel.Toggle -> {
             val statePayload = payloads["${panel.brokerId}|${panel.stateTopic}"]
             val resolvedState = statePayload?.let { JsonPath.extract(it, panel.stateJsonPath) }
-            val isOn = resolvedState?.equals(panel.onPayload, ignoreCase = true) ?: false
+            // onPayload might be a whole JSON command like {"state":"OPEN"}, not
+            // just the bare value the state topic reports back - pull the same
+            // field back out of it (via the same stateJsonPath) to get a fair
+            // comparison. Falls back to the raw onPayload string for simple
+            // non-JSON commands like a bare "ON", where extraction fails.
+            val expectedOnValue = JsonPath.extract(panel.onPayload, panel.stateJsonPath) ?: panel.onPayload
+            val isOn = resolvedState != null && resolvedState.equals(expectedOnValue, ignoreCase = true)
             ToggleTile(
                 modifier = modifier,
                 icon = panel.icon,
