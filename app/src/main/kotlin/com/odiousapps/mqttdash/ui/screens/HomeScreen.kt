@@ -226,6 +226,7 @@ private fun PanelTile(
                     numericValue == null -> SensorAlert.NONE
                     min != null && numericValue < min -> SensorAlert.BELOW_MIN
                     max != null && numericValue > max -> SensorAlert.ABOVE_MAX
+                    min != null || max != null -> SensorAlert.IN_RANGE
                     else -> SensorAlert.NONE
                 }
             }
