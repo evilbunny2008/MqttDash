@@ -66,6 +66,18 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = cfg.groups.filterNot { it.id == id })
     }
 
+    /** Moves a group earlier (offset -1) or later (offset +1) in the display order. */
+    fun moveGroup(groupId: String, offset: Int) = update { cfg ->
+        val index = cfg.groups.indexOfFirst { it.id == groupId }
+        if (index < 0) return@update cfg
+        val newIndex = (index + offset).coerceIn(0, cfg.groups.lastIndex)
+        if (newIndex == index) return@update cfg
+        val reordered = cfg.groups.toMutableList()
+        val moved = reordered.removeAt(index)
+        reordered.add(newIndex, moved)
+        cfg.copy(groups = reordered)
+    }
+
     fun setGroupCollapsed(groupId: String, collapsed: Boolean) = update { cfg ->
         cfg.copy(groups = cfg.groups.map { if (it.id == groupId) it.copy(collapsed = collapsed) else it })
     }
