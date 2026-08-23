@@ -7,6 +7,7 @@ import com.odiousapps.z2mdash.data.PayloadCacheEntry
 import com.odiousapps.z2mdash.data.PayloadCacheRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -94,13 +95,29 @@ class MqttConnectionManager(
         connections[brokerId]?.subscribe("#")
     }
 
-    /** Periodically writes the current payload/timestamp state to disk. Call once at startup. */
+    /** Backstop: keeps the cache fresh during long, quiet steady-state periods. */
     fun startPersistingCache() {
         scope.launch(Dispatchers.Default) {
             while (true) {
-                delay(30_000)
+                delay(20_000)
                 persistCacheNow()
             }
+        }
+    }
+
+    // Debounced so a burst of messages (e.g. right after subscribing to "#")
+    // doesn't hammer disk, but the *first* write still lands within ~2 seconds
+    // of data actually arriving - important because a force-stopped app gets
+    // SIGKILLed with zero warning, so the only real protection against losing
+    // a short test session is writing early and often, not relying solely on
+    // the 20-second backstop above.
+    private var persistJob: Job? = null
+
+    private fun schedulePersist() {
+        if (persistJob?.isActive == true) return
+        persistJob = scope.launch(Dispatchers.Default) {
+            delay(2_000)
+            persistCacheNow()
         }
     }
 
@@ -126,6 +143,7 @@ class MqttConnectionManager(
                 val key = keyFor(broker.id, msg.topic)
                 _latestPayloads.update { it + (key to msg.payload) }
                 _latestPayloadTimestamps.update { it + (key to System.currentTimeMillis()) }
+                schedulePersist()
             }
         }
         return conn
