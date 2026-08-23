@@ -52,7 +52,15 @@ class ConfigRepository(private val context: Context) {
     }
 
     fun deleteBroker(id: String) = update { cfg ->
-        cfg.copy(brokers = cfg.brokers.filterNot { it.id == id })
+        // Pending/ignored device prompts are scoped to a broker - once it's gone,
+        // clear both so the Home screen doesn't keep showing stale "add/ignore"
+        // banners (or silently remembering a dismissal) for a broker that no longer exists.
+        val prefix = "$id|"
+        cfg.copy(
+            brokers = cfg.brokers.filterNot { it.id == id },
+            pendingAutoConfigDevices = cfg.pendingAutoConfigDevices.filterNot { it.brokerId == id },
+            ignoredAppConfigTopics = cfg.ignoredAppConfigTopics.filterNot { it.startsWith(prefix) }
+        )
     }
 
     fun upsertGroup(group: PanelGroup) = update { cfg ->
