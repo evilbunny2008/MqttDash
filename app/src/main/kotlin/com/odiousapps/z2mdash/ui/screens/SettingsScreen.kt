@@ -62,7 +62,7 @@ fun SettingsScreen(navController: NavController) {
                 try {
                     app.configRepository.importJson(text)
                     snackbarMessage = "Configuration imported"
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     snackbarMessage = "Import failed: not a valid config file"
                 }
             }
@@ -136,7 +136,7 @@ fun SettingsScreen(navController: NavController) {
             item {
                 ListItem(
                     headlineContent = { Text("About") },
-                    supportingContent = { Text("MQTT Dash Clone \u2013 MIT licensed, no cloud, no account, no lock-in") },
+                    supportingContent = { Text("Z2M Dash \u2013 MIT licensed, no cloud, no account, no lock-in") },
                     leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
                 )
             }

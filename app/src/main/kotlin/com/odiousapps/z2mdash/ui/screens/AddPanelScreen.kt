@@ -242,7 +242,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(expanded = iconExpanded, onDismissRequest = { iconExpanded = false }) {
-                        TileIcon.values().forEach { ic ->
+                        TileIcon.entries.forEach { ic ->
                             DropdownMenuItem(text = { Text(ic.name) }, onClick = { icon = ic; iconExpanded = false })
                         }
                     }

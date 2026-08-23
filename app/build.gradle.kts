@@ -53,7 +53,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
 
     // XML theme resources (Theme.Material3.*) used by AndroidManifest, separate from
-    // the Compose Material3 Kotlin artifact below.
+    // the Compose Material3 Kotlin artefact below.
     implementation("com.google.android.material:material:1.14.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2026.08.00")

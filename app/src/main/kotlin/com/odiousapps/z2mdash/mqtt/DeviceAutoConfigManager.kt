@@ -24,12 +24,12 @@ import java.util.UUID
  * Keeps every device that was configured via its own "<topic>/app" payload
  * (see SensorDiscovery/DiscoverScreen) up to date - whenever that topic's
  * retained payload changes, this regenerates the device's panels to match,
- * live, without the user needing to revisit the Discover screen.
+ * live, without needing go to Discover screen.
  *
  * Also watches every broker's full topic stream (MqttConnectionManager now
  * subscribes every broker to "#" continuously) for brand-new "<topic>/app"
  * topics it hasn't seen before, adds them to a pending list, and notifies the
- * user - accepting or dismissing happens via a banner on the Home screen.
+ * user.
  */
 class DeviceAutoConfigManager(
     private val context: Context,
@@ -123,12 +123,10 @@ class DeviceAutoConfigManager(
     }
 
     private fun notifyNewDeviceFound(deviceName: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "New device found", NotificationManager.IMPORTANCE_DEFAULT
-            )
-            context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "New device found", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
 
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
         val pendingIntent = PendingIntent.getActivity(
@@ -137,7 +135,7 @@ class DeviceAutoConfigManager(
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("New device found")
-            .setContentText("$deviceName published its own dashboard config \u2013 open MQTT Dash to add it")
+            .setContentText("$deviceName published its own dashboard config \u2013 open Z2M Dash to add it")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -150,7 +148,7 @@ class DeviceAutoConfigManager(
 
         try {
             NotificationManagerCompat.from(context).notify(deviceName.hashCode(), notification)
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             // Permission revoked between the check above and this call - safe to ignore,
             // the pending device still shows up as a Home screen banner regardless.
         }

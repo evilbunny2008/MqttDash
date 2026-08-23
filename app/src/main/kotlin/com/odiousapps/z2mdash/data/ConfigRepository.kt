@@ -28,7 +28,7 @@ class ConfigRepository(private val context: Context) {
     private fun load(): AppConfig = try {
         if (file.exists()) json.decodeFromString(AppConfig.serializer(), file.readText())
         else AppConfig()
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         AppConfig()
     }
 
@@ -72,10 +72,10 @@ class ConfigRepository(private val context: Context) {
 
     fun deleteGroup(id: String) = update { cfg ->
         val remainingGroups = cfg.groups.filterNot { it.id == id }
-        // A deleted group takes its panels with it. Any auto-configured device
+        // A deleted group takes its panels with it. Any autoconfigured device
         // whose panels all lived in that group has nothing left - drop its
         // tracking record too, or the Discover screen would keep that topic
-        // hidden forever even though it has no panels anymore.
+        // hidden forever even though it has no panels any more.
         val remainingPanelIds = remainingGroups.flatMap { it.panels }.map { it.id }.toSet()
         val remainingDevices = cfg.autoConfiguredDevices.filter { device ->
             device.createdPanelIds.any { it in remainingPanelIds }
@@ -128,7 +128,7 @@ class ConfigRepository(private val context: Context) {
             if (g.id == groupId) g.copy(panels = g.panels.filterNot { it.id == panelId }) else g
         }
         // Same reasoning as deleteGroup: if that was the last panel an
-        // auto-configured device owned, drop its tracking record too so the
+        // autoconfigured device owned, drop its tracking record too so the
         // Discover screen stops hiding a topic with nothing left to show for it.
         val remainingPanelIds = updatedGroups.flatMap { it.panels }.map { it.id }.toSet()
         val remainingDevices = cfg.autoConfiguredDevices.filter { device ->
@@ -138,7 +138,7 @@ class ConfigRepository(private val context: Context) {
     }
 
     /**
-     * Atomically replaces everything owned by an auto-configured device: strips
+     * Atomically replaces everything owned by an autoconfigured device: strips
      * its previous panels (wherever they currently live, in case the device's
      * declared group changed) out of every group, adds the freshly-built [newPanels]
      * into [targetGroupId], and records/updates the tracking entry in one state

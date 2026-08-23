@@ -101,7 +101,7 @@ object SensorDiscovery {
             }
             DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs)
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 
@@ -114,15 +114,12 @@ object SensorDiscovery {
     private fun numericFieldsOf(payload: String): List<DiscoveredField> = try {
         val element = Json.parseToJsonElement(payload)
         val obj = element as? JsonObject
-        if (obj == null) {
-            emptyList()
-        } else {
-            obj.entries.mapNotNull { (key, value) ->
-                val num = (value as? JsonPrimitive)?.doubleOrNull ?: return@mapNotNull null
-                DiscoveredField(key, num)
-            }
+        obj?.entries?.mapNotNull { (key, value) ->
+            val num = (value as? JsonPrimitive)?.doubleOrNull ?: return@mapNotNull null
+            DiscoveredField(key, num)
         }
-    } catch (e: Exception) {
+            ?: emptyList()
+    } catch (_: Exception) {
         emptyList()
     }
 

@@ -93,7 +93,7 @@ fun DiscoverScreen(navController: NavController, initialBrokerId: String? = null
         allPayloads.filterKeys { it.startsWith(prefix) }.mapKeys { it.key.removePrefix(prefix) }
     }
     val discovered = remember(brokerPayloads) { SensorDiscovery.discoverSensors(brokerPayloads) }
-    // Devices already tracked as auto-configured (for this broker) are hidden
+    // Devices already tracked as autoconfigured (for this broker) are hidden
     // permanently - the DeviceAutoConfigManager background reconciler keeps
     // them up to date on its own from here on, no need to revisit this screen.
     val visibleSensors = discovered.filterNot { sensor ->
@@ -357,7 +357,7 @@ fun DiscoverScreen(navController: NavController, initialBrokerId: String? = null
                             }
                             Text(
                                 "Creates ${deviceConfig.panelFields.size} panel(s) exactly as listed in " +
-                                    "${appConfigTopic}" +
+                                    appConfigTopic +
                                     (deviceConfig.group?.let { " into group \"$it\"" } ?: "") +
                                     ", skipping the checkboxes below.",
                                 style = MaterialTheme.typography.bodySmall
@@ -366,7 +366,7 @@ fun DiscoverScreen(navController: NavController, initialBrokerId: String? = null
                         } else if (appConfigTopic != null && appConfigPayload != null) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Found ${appConfigTopic} but couldn't read it as a device config " +
+                                "Found $appConfigTopic but couldn't read it as a device config " +
                                     "\u2013 check it's valid JSON with a non-empty \"panels\" array.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error

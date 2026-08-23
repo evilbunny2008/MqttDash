@@ -99,7 +99,7 @@ data class PanelGroup(
  * Tracks a device that was configured via its own "<topic>/app" payload, so the
  * app can keep watching that topic afterwards and automatically regenerate the
  * device's panels if the device republishes a changed config - not just a
- * one-off action taken from the Discover screen.
+ * one-off action.
  */
 @Serializable
 data class AutoConfiguredDevice(
@@ -115,7 +115,7 @@ data class AutoConfiguredDevice(
 
 /**
  * A "<topic>/app" was seen for the first time (parses successfully, not
- * already auto-configured, not previously dismissed) - waiting on the user to
+ * already autoconfigured, not previously dismissed) - waiting on the user to
  * accept or ignore it, surfaced as a Home screen banner and a notification.
  */
 @Serializable

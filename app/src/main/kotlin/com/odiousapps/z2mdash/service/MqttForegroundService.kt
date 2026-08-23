@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.odiousapps.z2mdash.Z2mDashApplication
@@ -29,14 +28,12 @@ class MqttForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     private fun buildNotification(): Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "MQTT connection", NotificationManager.IMPORTANCE_LOW
-            )
-            getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID, "MQTT connection", NotificationManager.IMPORTANCE_LOW
+        )
+        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MQTT Dash")
+            .setContentTitle("Z2M Dash")
             .setContentText("Maintaining broker connections")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)

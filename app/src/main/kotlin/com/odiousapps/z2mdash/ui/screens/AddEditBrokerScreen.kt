@@ -151,7 +151,7 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
                     expanded = protocolExpanded,
                     onDismissRequest = { protocolExpanded = false }
                 ) {
-                    MqttProtocol.values().forEach { proto ->
+                    MqttProtocol.entries.forEach { proto ->
                         DropdownMenuItem(
                             text = { Text(protocolLabel(proto)) },
                             onClick = {

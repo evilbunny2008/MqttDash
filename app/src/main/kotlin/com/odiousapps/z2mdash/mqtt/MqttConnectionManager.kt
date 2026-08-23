@@ -59,7 +59,7 @@ class MqttConnectionManager(private val scope: CoroutineScope) {
             }
         }
 
-        // Keep watching every auto-configured device's own topics explicitly,
+        // Keep watching every autoconfigured device's own topics explicitly,
         // independent of whether any current panel happens to reference them -
         // otherwise a device that later drops its ideal-range fields (for
         // example) could silently stop being watched for config changes.
