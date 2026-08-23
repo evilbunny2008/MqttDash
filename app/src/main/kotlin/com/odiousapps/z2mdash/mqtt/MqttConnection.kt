@@ -115,8 +115,17 @@ class MqttConnection(private val broker: Broker) {
 
     fun subscribe(topic: String) {
         if (topic.isBlank()) return
-        subscribedTopics.add(topic)
-        if (_connectionState.value == ConnectionState.CONNECTED) doSubscribe(topic)
+        // Set.add() returns false if the topic was already tracked - skip
+        // resending an actual SUBSCRIBE packet in that case. Otherwise every
+        // config change (of which there can be many during device
+        // auto-discovery) triggers a fresh "#" subscribe, and MQTT brokers
+        // redeliver every matching retained message on every subscribe, even
+        // for a topic already subscribed to - which was quietly resetting
+        // this app's own "updated N ago" displays back toward zero.
+        val isNewSubscription = subscribedTopics.add(topic)
+        if (isNewSubscription && _connectionState.value == ConnectionState.CONNECTED) {
+            doSubscribe(topic)
+        }
     }
 
     private fun doSubscribe(topic: String) {

@@ -253,21 +253,36 @@ private fun ClusterCard(
     tileWidth: Dp
 ) {
     val ageText = remember(panels, payloads, timestamps, nowMillis) {
-        val latestTimestamp = panels.mapNotNull { panel ->
-            val topic = when (panel) {
-                is Panel.Sensor -> panel.topic
-                is Panel.Toggle -> panel.stateTopic.takeIf { it.isNotBlank() }
-            } ?: return@mapNotNull null
-            val key = "${panel.brokerId}|$topic"
-            // Prefer the device's own reported time (Zigbee2MQTT's "last_seen"
-            // field, when present) over our app's receipt time - it reflects
-            // when the device itself last reported in, not just when this app
-            // instance happened to be listening (which resets on reconnect).
-            val deviceReportedMillis = payloads[key]
+        fun topicFor(panel: Panel): String? = when (panel) {
+            is Panel.Sensor -> panel.topic
+            is Panel.Toggle -> panel.stateTopic.takeIf { it.isNotBlank() }
+        }
+
+        // Prefer the device's own reported time (Zigbee2MQTT's "last_seen" field)
+        // over our app's receipt time - it reflects when the device itself last
+        // reported in, not just when this app instance happened to receive a
+        // message (which can be bumped by things unrelated to real freshness,
+        // like a broker redelivering a retained message on resubscribe).
+        val deviceReportedTimestamps = panels.mapNotNull { panel ->
+            val topic = topicFor(panel) ?: return@mapNotNull null
+            payloads["${panel.brokerId}|$topic"]
                 ?.let { JsonPath.extract(it, "last_seen") }
                 ?.let { JsonPath.parseIso8601(it) }
-            deviceReportedMillis ?: timestamps[key]
-        }.maxOrNull()
+        }
+
+        // Only fall back to receipt time if NONE of this cluster's panels have a
+        // genuine last_seen anywhere - otherwise a config-only topic without one
+        // (like the device's own "/app" topic) could drag the cluster's displayed
+        // freshness down just because its unrelated topic happened to update.
+        val latestTimestamp = if (deviceReportedTimestamps.isNotEmpty()) {
+            deviceReportedTimestamps.max()
+        } else {
+            panels.mapNotNull { panel ->
+                val topic = topicFor(panel) ?: return@mapNotNull null
+                timestamps["${panel.brokerId}|$topic"]
+            }.maxOrNull()
+        }
+
         latestTimestamp?.let {
             DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.SECOND_IN_MILLIS).toString()
         }
