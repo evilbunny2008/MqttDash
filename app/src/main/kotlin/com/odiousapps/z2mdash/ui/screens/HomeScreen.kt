@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,16 @@ fun HomeScreen(navController: NavController) {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val payloads by app.connectionManager.latestPayloads.collectAsState()
+
+    // Nothing on this screen can do anything without a broker - send the user
+    // straight to Add Broker rather than showing them an unusable empty Home.
+    // Only re-fires if brokers go from present to empty again later (e.g. the
+    // last one gets deleted), not on every recomposition.
+    LaunchedEffect(config.brokers.isEmpty()) {
+        if (config.brokers.isEmpty()) {
+            navController.navigate("broker/new")
+        }
+    }
 
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
 
