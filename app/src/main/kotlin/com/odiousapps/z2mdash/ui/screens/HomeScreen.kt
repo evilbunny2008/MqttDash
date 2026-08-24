@@ -4,8 +4,6 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,7 +60,6 @@ import com.odiousapps.z2mdash.ui.components.ToggleTile
 import java.util.UUID
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(navController: NavController) {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
@@ -102,7 +99,8 @@ fun HomeScreen(navController: NavController) {
     // phone's, so tiles (and whole clusters) end up oversized there too,
     // leaving no room for a second cluster even on a wide screen. A fixed cap
     // keeps clusters a consistent, comfortable size on any device, so the
-    // surrounding FlowRow can fit as many side-by-side as actually fit.
+    // manual row-packing below (see packedRows) can fit as many side-by-side
+    // as actually fit, rather than relying on FlowRow's own wrapping logic.
     val configuration = LocalConfiguration.current
     val columnsPerRow = 3
     val standaloneTileWidth = run {
@@ -177,64 +175,97 @@ fun HomeScreen(navController: NavController) {
                     }
 
                     if (!group.collapsed) {
-                        FlowRow(
+                        // Panels sharing a non-blank clusterName render together in one
+                        // card; panels with a blank clusterName stay as standalone tiles,
+                        // each getting its own unique bucket so they don't merge together.
+                        val clusters = LinkedHashMap<String, MutableList<Panel>>()
+                        group.panels.forEach { panel ->
+                            val key = panel.clusterName.ifBlank { "__single__${panel.id}" }
+                            clusters.getOrPut(key) { mutableListOf() }.add(panel)
+                        }
+                        // Sort clusters/standalone tiles by their lowest displayOrder (falls
+                        // back to insertion order for anything left at the Int.MAX_VALUE default),
+                        // and also sort each cluster's own panels by displayOrder so panels can
+                        // be reordered *within* a cluster, not just relative to other clusters.
+                        val orderedClusters = clusters.values
+                            .map { bucket -> bucket.sortedBy { it.displayOrder } }
+                            .sortedBy { bucket -> bucket.minOf { it.displayOrder } }
+
+                        // Manually pack clusters/tiles into rows rather than relying on
+                        // FlowRow's own wrapping - computed directly against each item's
+                        // known width, so multiple clusters land on the same row whenever
+                        // they actually fit, on any screen size or orientation.
+                        val clusterCardWidth = standaloneTileWidth * columnsPerRow + 8.dp * (columnsPerRow - 1)
+                        val availableRowWidth = configuration.screenWidthDp.dp - 24.dp
+                        val packedRows = remember(orderedClusters, standaloneTileWidth, availableRowWidth) {
+                            val rows = mutableListOf<MutableList<List<Panel>>>()
+                            var currentRow = mutableListOf<List<Panel>>()
+                            var usedWidth = 0.dp
+                            orderedClusters.forEach { panelsInCluster ->
+                                val itemWidth = if (panelsInCluster.first().clusterName.isBlank()) {
+                                    standaloneTileWidth
+                                } else {
+                                    clusterCardWidth
+                                }
+                                val gapNeeded = if (currentRow.isEmpty()) 0.dp else 8.dp
+                                if (currentRow.isNotEmpty() && usedWidth + gapNeeded + itemWidth > availableRowWidth) {
+                                    rows.add(currentRow)
+                                    currentRow = mutableListOf()
+                                    usedWidth = 0.dp
+                                }
+                                if (currentRow.isNotEmpty()) usedWidth += 8.dp
+                                currentRow.add(panelsInCluster)
+                                usedWidth += itemWidth
+                            }
+                            if (currentRow.isNotEmpty()) rows.add(currentRow)
+                            rows
+                        }
+
+                        Column(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Panels sharing a non-blank clusterName render together in one
-                            // card; panels with a blank clusterName stay as standalone tiles,
-                            // each getting its own unique bucket so they don't merge together.
-                            val clusters = LinkedHashMap<String, MutableList<Panel>>()
-                            group.panels.forEach { panel ->
-                                val key = panel.clusterName.ifBlank { "__single__${panel.id}" }
-                                clusters.getOrPut(key) { mutableListOf() }.add(panel)
-                            }
-                            // Sort clusters/standalone tiles by their lowest displayOrder (falls
-                            // back to insertion order for anything left at the Int.MAX_VALUE default),
-                            // and also sort each cluster's own panels by displayOrder so panels can
-                            // be reordered *within* a cluster, not just relative to other clusters.
-                            val orderedClusters = clusters.values
-                                .map { bucket -> bucket.sortedBy { it.displayOrder } }
-                                .sortedBy { bucket -> bucket.minOf { it.displayOrder } }
-
-                            orderedClusters.forEach { panelsInCluster ->
-                                val name = panelsInCluster.first().clusterName
-                                // Stable per-cluster identity, independent of list
-                                // position - without this, Compose can reuse another
-                                // cluster's remembered state (like ageText) when the
-                                // list reorders as devices are added/removed, since
-                                // it otherwise identifies composables by call position.
-                                key(panelsInCluster.first().id) {
-                                    if (name.isBlank()) {
-                                        PanelTile(
-                                            panel = panelsInCluster.first(),
-                                            groupId = group.id,
-                                            payloads = payloads,
-                                            app = app,
-                                            navController = navController,
-                                            modifier = Modifier.width(standaloneTileWidth)
-                                        )
-                                    } else {
-                                        ClusterCard(
-                                            name = name,
-                                            panels = panelsInCluster,
-                                            groupId = group.id,
-                                            payloads = payloads,
-                                            timestamps = timestamps,
-                                            nowMillis = nowMillis,
-                                            app = app,
-                                            navController = navController,
-                                            columns = columnsPerRow,
-                                            tileWidth = standaloneTileWidth,
-                                            onDelete = {
-                                                pendingClusterDelete = PendingClusterDelete(
+                            packedRows.forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    row.forEach { panelsInCluster ->
+                                        val name = panelsInCluster.first().clusterName
+                                        // Stable per-cluster identity, independent of list
+                                        // position - without this, Compose can reuse another
+                                        // cluster's remembered state (like ageText) when the
+                                        // list reorders as devices are added/removed, since
+                                        // it otherwise identifies composables by call position.
+                                        key(panelsInCluster.first().id) {
+                                            if (name.isBlank()) {
+                                                PanelTile(
+                                                    panel = panelsInCluster.first(),
                                                     groupId = group.id,
+                                                    payloads = payloads,
+                                                    app = app,
+                                                    navController = navController,
+                                                    modifier = Modifier.width(standaloneTileWidth)
+                                                )
+                                            } else {
+                                                ClusterCard(
                                                     name = name,
-                                                    panelIds = panelsInCluster.map { it.id }
+                                                    panels = panelsInCluster,
+                                                    groupId = group.id,
+                                                    payloads = payloads,
+                                                    timestamps = timestamps,
+                                                    nowMillis = nowMillis,
+                                                    app = app,
+                                                    navController = navController,
+                                                    columns = columnsPerRow,
+                                                    tileWidth = standaloneTileWidth,
+                                                    onDelete = {
+                                                        pendingClusterDelete = PendingClusterDelete(
+                                                            groupId = group.id,
+                                                            name = name,
+                                                            panelIds = panelsInCluster.map { it.id }
+                                                        )
+                                                    }
                                                 )
                                             }
-                                        )
+                                        }
                                     }
                                 }
                             }
