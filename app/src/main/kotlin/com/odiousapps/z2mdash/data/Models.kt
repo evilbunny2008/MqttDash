@@ -134,7 +134,13 @@ data class PendingAutoConfigDevice(
 data class AppConfig(
     val brokers: List<Broker> = emptyList(),
     val groups: List<PanelGroup> = emptyList(),
-    val backgroundWorkEnabled: Boolean = true,
+    // Off by default: since every "<topic>/app" and sensor payload is retained,
+    // the broker delivers current state immediately on connect regardless of
+    // whether this app was running in the background - a persistent foreground
+    // connection genuinely is optional for correct data, not just for UX, so
+    // it should be something the user opts into rather than something enabled
+    // for them out of the box.
+    val backgroundWorkEnabled: Boolean = false,
     val autoConfiguredDevices: List<AutoConfiguredDevice> = emptyList(),
     val pendingAutoConfigDevices: List<PendingAutoConfigDevice> = emptyList(),
     // "brokerId|appConfigTopic" composite keys the user has explicitly dismissed,
