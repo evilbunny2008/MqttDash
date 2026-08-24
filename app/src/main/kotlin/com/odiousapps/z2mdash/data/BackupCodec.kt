@@ -17,20 +17,23 @@ object BackupCodec {
     // yyyy-MM-dd_HH-mm-ss - zero-padded and most-significant-first, so plain
     // string sorting already puts backups in chronological order (no need to
     // parse it back to compare two of these). Avoids ":" since it's an MQTT
-    // wildcard-adjacent character some brokers/tools are fussy about in topics.
-    private val TOPIC_TIMESTAMP_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+    // wildcard-adjacent character some brokers/tools are fussy about in topics,
+    // and colons aren't valid in filenames on some platforms either.
+    private val TIMESTAMP_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+
+    private fun currentTimestamp(): String = java.time.LocalDateTime.now().format(TIMESTAMP_FORMAT)
 
     /** A new "<baseTopic>/<timestamp>" topic for a fresh backup, e.g. "z2mdash/backup/2026-08-24_01-45-30". */
-    fun newBackupTopic(baseTopic: String): String {
-        val stamp = java.time.LocalDateTime.now().format(TOPIC_TIMESTAMP_FORMAT)
-        return "${baseTopic.trim().trim('/')}/$stamp"
-    }
+    fun newBackupTopic(baseTopic: String): String = "${baseTopic.trim().trim('/')}/${currentTimestamp()}"
+
+    /** A timestamped filename for a fresh file backup, e.g. "z2mdash-config-2026-08-24_01-45-30.json.gz". */
+    fun newBackupFileName(): String = "z2mdash-config-${currentTimestamp()}.json.gz"
 
     /** Parses the trailing "<timestamp>" segment of a backup topic back into a display-friendly string, or null if it doesn't match. */
     fun displayTimestamp(backupTopic: String): String? {
         val stamp = backupTopic.substringAfterLast('/')
         return try {
-            val parsed = java.time.LocalDateTime.parse(stamp, TOPIC_TIMESTAMP_FORMAT)
+            val parsed = java.time.LocalDateTime.parse(stamp, TIMESTAMP_FORMAT)
             parsed.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, h:mm:ss a"))
         } catch (_: Exception) {
             null

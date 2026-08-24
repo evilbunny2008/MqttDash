@@ -136,7 +136,7 @@ fun SettingsScreen(navController: NavController) {
                     headlineContent = { Text("Configuration Backup") },
                     supportingContent = { Text("Save your brokers, groups and panels as a compressed file you own") },
                     leadingContent = { Icon(Icons.Default.Backup, contentDescription = null) },
-                    modifier = Modifier.clickable { exportLauncher.launch("z2mdash-config.json.gz") }
+                    modifier = Modifier.clickable { exportLauncher.launch(BackupCodec.newBackupFileName()) }
                 )
             }
             item {
