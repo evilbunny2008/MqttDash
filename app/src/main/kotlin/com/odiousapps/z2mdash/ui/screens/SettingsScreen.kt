@@ -145,7 +145,14 @@ fun SettingsScreen(navController: NavController) {
                     supportingContent = { Text("Restore from a previously exported backup file") },
                     leadingContent = { Icon(Icons.Default.Restore, contentDescription = null) },
                     modifier = Modifier.clickable {
-                        importLauncher.launch(arrayOf("application/gzip", "application/json", "application/octet-stream"))
+                        // "*/*" rather than filtering by MIME type - different
+                        // storage providers report gzip files inconsistently
+                        // (application/x-gzip vs application/gzip vs
+                        // octet-stream), which was silently hiding valid
+                        // backups from the picker. The app already validates
+                        // content itself (tries gzip, falls back to plain
+                        // JSON) regardless of what the OS reports.
+                        importLauncher.launch(arrayOf("*/*"))
                     }
                 )
             }
