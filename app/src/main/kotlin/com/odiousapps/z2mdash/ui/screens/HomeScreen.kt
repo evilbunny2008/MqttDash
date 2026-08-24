@@ -1,6 +1,5 @@
 package com.odiousapps.z2mdash.ui.screens
 
-import android.content.res.Configuration
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,18 +96,15 @@ fun HomeScreen(navController: NavController) {
     var pendingClusterDelete by remember { mutableStateOf<PendingClusterDelete?>(null) }
 
     // Standalone (non-clustered) panels, and panels inside a cluster card, both
-    // lay out as an exact 3-column grid in portrait, by sizing each tile to a
-    // third of the available width; in landscape they keep the old fixed-160dp
-    // (standalone) / 2-column (cluster) layout.
+    // lay out as an exact 3-column grid regardless of orientation, sizing each
+    // tile to a third of the available width - landscape just has more width
+    // per tile since the screen itself is wider, not more columns.
     val configuration = LocalConfiguration.current
-    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-    val columnsPerRow = if (isPortrait) 3 else 2
-    val standaloneTileWidth = if (isPortrait) {
+    val columnsPerRow = 3
+    val standaloneTileWidth = run {
         val groupHorizontalPadding = 12.dp * 2
         val gapsBetweenColumns = 8.dp * (columnsPerRow - 1)
         (configuration.screenWidthDp.dp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
-    } else {
-        160.dp
     }
 
     Scaffold(
@@ -331,9 +327,17 @@ private fun ClusterCard(
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
+        // Every row gets the same fixed width (a full 3-column row), regardless
+        // of how many panels actually land in it - a short trailing row, or a
+        // whole cluster with fewer than 3 panels, then centers within that
+        // fixed width instead of bunching to the left with empty space beside it.
+        val fullRowWidth = tileWidth * columns + 8.dp * (columns - 1)
         Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             panels.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    modifier = Modifier.width(fullRowWidth)
+                ) {
                     row.forEach { panel ->
                         PanelTile(
                             panel = panel,
