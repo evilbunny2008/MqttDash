@@ -211,7 +211,7 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
                         try {
                             certPickerLauncher.launch("*/*")
                             pickerUnavailable = false
-                        } catch (e: ActivityNotFoundException) {
+                        } catch (_: ActivityNotFoundException) {
                             pickerUnavailable = true
                         }
                     }) {

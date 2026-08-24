@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /** Cap on how many recent messages the Terminal tab keeps around, oldest dropped first. */
 private const val MAX_LOGGED_MESSAGES = 300
@@ -122,7 +123,7 @@ class MqttConnectionManager(
     fun startPersistingCache() {
         scope.launch(Dispatchers.Default) {
             while (true) {
-                delay(20_000)
+                delay(20_000.milliseconds)
                 persistCacheNow()
             }
         }
@@ -139,7 +140,7 @@ class MqttConnectionManager(
     private fun schedulePersist() {
         if (persistJob?.isActive == true) return
         persistJob = scope.launch(Dispatchers.Default) {
-            delay(2_000)
+            delay(2_000.milliseconds)
             persistCacheNow()
         }
     }

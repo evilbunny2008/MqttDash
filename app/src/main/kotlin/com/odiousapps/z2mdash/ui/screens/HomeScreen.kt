@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,7 @@ import com.odiousapps.z2mdash.ui.components.SensorTile
 import com.odiousapps.z2mdash.ui.components.ToggleTile
 import java.util.UUID
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun HomeScreen(navController: NavController) {
@@ -71,10 +73,10 @@ fun HomeScreen(navController: NavController) {
     // moment a fresh MQTT message (or last_seen field) actually arrives - the
     // ageText computation below always re-derives from whichever timestamp is
     // most recent, so a new message naturally overrides a stale running count.
-    var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000)
+            delay(1_000.milliseconds)
             nowMillis = System.currentTimeMillis()
         }
     }

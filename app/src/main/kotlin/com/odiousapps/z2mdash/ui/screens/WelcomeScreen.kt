@@ -70,7 +70,7 @@ fun WelcomeScreen(navController: NavController) {
                     app.configRepository.importJson(json)
                     navController.popBackStack()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 errorMessage = "Import failed: not a valid config file"
             }
         }
@@ -109,7 +109,7 @@ fun WelcomeScreen(navController: NavController) {
                 onClick = {
                     try {
                         importLauncher.launch(arrayOf("*/*"))
-                    } catch (e: ActivityNotFoundException) {
+                    } catch (_: ActivityNotFoundException) {
                         errorMessage = "No file picker app is available on this device."
                     }
                 },

@@ -18,7 +18,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -42,7 +43,8 @@ android {
             excludes += "/META-INF/*.SF"
             excludes += "/META-INF/*.DSA"
             excludes += "/META-INF/*.RSA"
-            excludes += "META-INF/io.netty.versions.properties"
+            excludes += "/META-INF/io.netty.versions.properties"
+            excludes += "/META-INF/services/reactor.blockhound.integration.BlockHoundIntegration"
         }
     }
 }

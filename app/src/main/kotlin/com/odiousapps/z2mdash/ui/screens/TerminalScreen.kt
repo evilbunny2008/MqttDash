@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,6 +46,7 @@ import com.odiousapps.z2mdash.mqtt.LoggedMessage
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val ALL_BROKERS = "__all__"
 private const val MAX_LOGGED_MESSAGES_LABEL = "300"
@@ -61,10 +63,10 @@ fun TerminalScreen(navController: NavController) {
 
     // Ticks once a second so the relative timestamps ("3s ago") stay live,
     // same approach as the dashboard's cluster age display.
-    var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000)
+            delay(1_000.milliseconds)
             nowMillis = System.currentTimeMillis()
         }
     }

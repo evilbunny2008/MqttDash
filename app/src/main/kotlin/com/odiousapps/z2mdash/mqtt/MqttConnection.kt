@@ -116,7 +116,7 @@ class MqttConnection(private val broker: Broker) {
     fun subscribe(topic: String) {
         if (topic.isBlank()) return
         // Set.add() returns false if the topic was already tracked - skip
-        // resending an actual SUBSCRIBE packet in that case. Otherwise every
+        // resending an actual SUBSCRIBE packet in that case. Otherwise, every
         // config change (of which there can be many during device
         // auto-discovery) triggers a fresh "#" subscribe, and MQTT brokers
         // redeliver every matching retained message on every subscribe, even

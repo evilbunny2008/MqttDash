@@ -146,7 +146,7 @@ fun SettingsScreen(navController: NavController) {
                     modifier = Modifier.clickable {
                         try {
                             exportLauncher.launch(BackupCodec.newBackupFileName())
-                        } catch (e: ActivityNotFoundException) {
+                        } catch (_: ActivityNotFoundException) {
                             snackbarMessage = "No file picker app is available on this device."
                         }
                     }
@@ -167,7 +167,7 @@ fun SettingsScreen(navController: NavController) {
                         // JSON) regardless of what the OS reports.
                         try {
                             importLauncher.launch(arrayOf("*/*"))
-                        } catch (e: ActivityNotFoundException) {
+                        } catch (_: ActivityNotFoundException) {
                             snackbarMessage = "No file picker app is available on this device."
                         }
                     }
