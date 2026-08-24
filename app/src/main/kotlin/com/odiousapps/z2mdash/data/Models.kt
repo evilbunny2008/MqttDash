@@ -25,7 +25,11 @@ data class Broker(
     val keepAliveSeconds: Int = 60,
     val connectionTimeoutSeconds: Int = 30,
     val autoConnect: Boolean = true,
-    val showReconnectionStatus: Boolean = true
+    val showReconnectionStatus: Boolean = true,
+    // Scopes the app's automatic "#" discovery/watch subscription to
+    // "<baseTopic>/#" instead of the entire broker - most people only ever
+    // want their Zigbee2MQTT namespace, not every topic on a shared broker.
+    val baseTopic: String = "zigbee2mqtt"
 )
 
 @Serializable

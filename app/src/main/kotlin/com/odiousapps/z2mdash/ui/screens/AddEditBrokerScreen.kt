@@ -131,6 +131,20 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
             )
             Spacer(Modifier.height(16.dp))
 
+            OutlinedTextField(
+                value = broker.baseTopic,
+                onValueChange = { broker = broker.copy(baseTopic = it) },
+                label = { Text("Base topic") },
+                placeholder = { Text("zigbee2mqtt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "The app watches \"<base topic>/#\" for devices and their /app configs, " +
+                    "instead of every topic on the broker.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(16.dp))
+
             ExposedDropdownMenuBox(
                 expanded = protocolExpanded,
                 onExpandedChange = { protocolExpanded = it }

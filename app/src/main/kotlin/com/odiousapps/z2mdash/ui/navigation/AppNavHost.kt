@@ -26,6 +26,7 @@ import com.odiousapps.z2mdash.ui.screens.AddPanelScreen
 import com.odiousapps.z2mdash.ui.screens.BrokersScreen
 import com.odiousapps.z2mdash.ui.screens.DiscoverScreen
 import com.odiousapps.z2mdash.ui.screens.GroupsScreen
+import com.odiousapps.z2mdash.ui.screens.MqttBackupScreen
 import com.odiousapps.z2mdash.ui.screens.HomeScreen
 import com.odiousapps.z2mdash.ui.screens.PlaceholderScreen
 import com.odiousapps.z2mdash.ui.screens.SettingsScreen
@@ -84,6 +85,7 @@ fun AppNavHost() {
                 DiscoverScreen(navController, initialBrokerId = entry.arguments?.getString("brokerId"))
             }
             composable("groups") { GroupsScreen(navController) }
+            composable("mqttBackup") { MqttBackupScreen(navController) }
             composable("broker/{brokerId}") { entry ->
                 val id = entry.arguments?.getString("brokerId")
                 AddEditBrokerScreen(navController, if (id == "new") null else id)

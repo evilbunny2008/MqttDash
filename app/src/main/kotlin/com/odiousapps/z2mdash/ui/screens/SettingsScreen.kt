@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Restore
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
+import com.odiousapps.z2mdash.data.BackupCodec
 
 @Composable
 fun SettingsScreen(navController: NavController) {
@@ -45,11 +47,11 @@ fun SettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
+        ActivityResultContracts.CreateDocument("application/gzip")
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openOutputStream(it, "wt")?.use { out ->
-                out.write(app.configRepository.exportJson().toByteArray())
+                out.write(BackupCodec.compress(app.configRepository.exportJson()))
             }
             snackbarMessage = "Configuration exported"
         }
@@ -59,7 +61,15 @@ fun SettingsScreen(navController: NavController) {
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openInputStream(it)?.use { input ->
-                val text = input.readBytes().toString(Charsets.UTF_8)
+                val bytes = input.readBytes()
+                // Try the current gzip format first; fall back to treating the
+                // file as plain-text JSON so backups exported before this
+                // change still import fine.
+                val text = try {
+                    BackupCodec.decompress(bytes)
+                } catch (_: Exception) {
+                    bytes.toString(Charsets.UTF_8)
+                }
                 try {
                     app.configRepository.importJson(text)
                     snackbarMessage = "Configuration imported"
@@ -124,17 +134,27 @@ fun SettingsScreen(navController: NavController) {
             item {
                 ListItem(
                     headlineContent = { Text("Configuration Backup") },
-                    supportingContent = { Text("Save your brokers, groups and panels as plain JSON you own") },
+                    supportingContent = { Text("Save your brokers, groups and panels as a compressed file you own") },
                     leadingContent = { Icon(Icons.Default.Backup, contentDescription = null) },
-                    modifier = Modifier.clickable { exportLauncher.launch("z2mdash-config.json") }
+                    modifier = Modifier.clickable { exportLauncher.launch("z2mdash-config.json.gz") }
                 )
             }
             item {
                 ListItem(
                     headlineContent = { Text("Configuration Recovery") },
-                    supportingContent = { Text("Restore from a previously exported JSON file") },
+                    supportingContent = { Text("Restore from a previously exported backup file") },
                     leadingContent = { Icon(Icons.Default.Restore, contentDescription = null) },
-                    modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json")) }
+                    modifier = Modifier.clickable {
+                        importLauncher.launch(arrayOf("application/gzip", "application/json", "application/octet-stream"))
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Backup / Restore via MQTT") },
+                    supportingContent = { Text("Publish or read a compressed backup on a broker topic, instead of a file") },
+                    leadingContent = { Icon(Icons.Default.Cloud, contentDescription = null) },
+                    modifier = Modifier.clickable { navController.navigate("mqttBackup") }
                 )
             }
             item {

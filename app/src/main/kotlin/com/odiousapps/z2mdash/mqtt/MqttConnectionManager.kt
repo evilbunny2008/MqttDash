@@ -26,6 +26,7 @@ class MqttConnectionManager(
 ) {
 
     private val connections = mutableMapOf<String, MqttConnection>()
+    private val brokerById = mutableMapOf<String, Broker>()
 
     // Seeded from disk so the dashboard has correct, already-varied "updated N
     // ago" data to show immediately on launch, before any MQTT traffic (even
@@ -45,21 +46,30 @@ class MqttConnectionManager(
 
     private fun keyFor(brokerId: String, topic: String) = "$brokerId|$topic"
 
+    /** "<baseTopic>/#", defensively trimmed/defaulted in case the field is ever blank. */
+    private fun wildcardTopicFor(broker: Broker): String {
+        val base = broker.baseTopic.trim().trim('/').ifBlank { "zigbee2mqtt" }
+        return "$base/#"
+    }
+
     /** Call whenever the persisted config changes (brokers added/removed, panels added/removed). */
     fun applyConfig(config: AppConfig) {
         val brokerIds = config.brokers.map { it.id }.toSet()
         connections.keys.filterNot { it in brokerIds }.toList().forEach { id ->
             connections.remove(id)?.disconnect()
+            brokerById.remove(id)
         }
 
         config.brokers.forEach { broker ->
+            brokerById[broker.id] = broker
             val conn = connections.getOrPut(broker.id) { createConnection(broker) }
             if (broker.autoConnect) conn.connect()
-            // Subscribed to everything continuously (not just when the Discover
-            // screen is open) so new "<topic>/app" devices can be detected and
-            // prompted for in the background. Means every message the broker
-            // publishes flows through the app now, not just ones panels ask for.
-            conn.subscribe("#")
+            // Subscribed continuously (not just when the Discover screen is
+            // open) so new "<topic>/app" devices can be detected and prompted
+            // for in the background - scoped to the broker's own base topic
+            // rather than the whole broker, since most people only want their
+            // Zigbee2MQTT namespace, not every topic a shared broker carries.
+            conn.subscribe(wildcardTopicFor(broker))
         }
 
         config.groups.flatMap { it.panels }.forEach { panel ->
@@ -87,12 +97,13 @@ class MqttConnectionManager(
     }
 
     /**
-     * Subscribes a broker to every topic ("#") so its retained messages flow
-     * into [latestPayloads] for the Discover Sensors screen to scan. Safe to
-     * call more than once - subscriptions are idempotent.
+     * Subscribes a broker to its own "<baseTopic>/#" so its retained messages
+     * flow into [latestPayloads] for the Discover Sensors screen to scan. Safe
+     * to call more than once - subscriptions are idempotent.
      */
     fun discoverAll(brokerId: String) {
-        connections[brokerId]?.subscribe("#")
+        val broker = brokerById[brokerId] ?: return
+        connections[brokerId]?.subscribe(wildcardTopicFor(broker))
     }
 
     /** Backstop: keeps the cache fresh during long, quiet steady-state periods. */
@@ -149,8 +160,13 @@ class MqttConnectionManager(
         return conn
     }
 
-    fun publish(brokerId: String, topic: String, payload: String) {
-        connections[brokerId]?.publish(topic, payload)
+    fun publish(brokerId: String, topic: String, payload: String, retain: Boolean = false) {
+        connections[brokerId]?.publish(topic, payload, retain)
+    }
+
+    /** Subscribes to one specific topic on a broker - used by the MQTT backup/restore screen. */
+    fun subscribe(brokerId: String, topic: String) {
+        connections[brokerId]?.subscribe(topic)
     }
 
     fun reconnect(brokerId: String) {
