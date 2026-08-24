@@ -14,6 +14,29 @@ import java.util.zip.GZIPOutputStream
  */
 object BackupCodec {
 
+    // yyyy-MM-dd_HH-mm-ss - zero-padded and most-significant-first, so plain
+    // string sorting already puts backups in chronological order (no need to
+    // parse it back to compare two of these). Avoids ":" since it's an MQTT
+    // wildcard-adjacent character some brokers/tools are fussy about in topics.
+    private val TOPIC_TIMESTAMP_FORMAT = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")
+
+    /** A new "<baseTopic>/<timestamp>" topic for a fresh backup, e.g. "z2mdash/backup/2026-08-24_01-45-30". */
+    fun newBackupTopic(baseTopic: String): String {
+        val stamp = java.time.LocalDateTime.now().format(TOPIC_TIMESTAMP_FORMAT)
+        return "${baseTopic.trim().trim('/')}/$stamp"
+    }
+
+    /** Parses the trailing "<timestamp>" segment of a backup topic back into a display-friendly string, or null if it doesn't match. */
+    fun displayTimestamp(backupTopic: String): String? {
+        val stamp = backupTopic.substringAfterLast('/')
+        return try {
+            val parsed = java.time.LocalDateTime.parse(stamp, TOPIC_TIMESTAMP_FORMAT)
+            parsed.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, h:mm:ss a"))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun compress(text: String): ByteArray {
         val output = ByteArrayOutputStream()
         GZIPOutputStream(output).use { it.write(text.toByteArray(Charsets.UTF_8)) }

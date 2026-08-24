@@ -1,31 +1,34 @@
 package com.odiousapps.z2mdash.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -34,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -41,7 +45,7 @@ import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.BackupCodec
 
-private const val DEFAULT_BACKUP_TOPIC = "z2mdash/backup"
+private const val DEFAULT_BACKUP_PREFIX = "z2mdash/backup"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,25 +56,21 @@ fun MqttBackupScreen(navController: NavController) {
 
     var mode by remember { mutableStateOf("Backup") }
     var selectedBrokerId by remember { mutableStateOf(config.brokers.firstOrNull()?.id ?: "") }
-    var topic by remember { mutableStateOf(DEFAULT_BACKUP_TOPIC) }
+    var topicPrefix by remember { mutableStateOf(DEFAULT_BACKUP_PREFIX) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isWaitingForRestore by remember { mutableStateOf(false) }
+    var hasScanned by remember { mutableStateOf(false) }
+    var restoringTopic by remember { mutableStateOf<String?>(null) }
 
-    // Reacts on its own each recomposition once payloads (collected above)
-    // includes something for this broker/topic - MQTT delivery isn't
-    // instant, especially for a retained message right after subscribing.
-    if (isWaitingForRestore) {
-        val raw = payloads["$selectedBrokerId|$topic"]
-        if (raw != null) {
-            isWaitingForRestore = false
-            try {
-                val json = BackupCodec.decompressFromBase64(raw)
-                app.configRepository.importJson(json)
-                statusMessage = "Configuration restored from MQTT"
-            } catch (_: Exception) {
-                statusMessage = "Restore failed: payload on that topic wasn't a valid compressed backup"
-            }
-        }
+    // Every backup topic ever discovered under "<prefix>/", newest first -
+    // recomputed straight off the live payloads map, so the list updates on
+    // its own as more retained backups arrive after a scan.
+    val prefix = topicPrefix.trim().trim('/')
+    val discoveredBackups = remember(payloads, selectedBrokerId, prefix) {
+        val keyPrefix = "$selectedBrokerId|$prefix/"
+        payloads.keys
+            .filter { it.startsWith(keyPrefix) }
+            .map { it.removePrefix("$selectedBrokerId|") }
+            .sortedDescending()
     }
 
     Scaffold(
@@ -122,6 +122,7 @@ fun MqttBackupScreen(navController: NavController) {
                         DropdownMenuItem(text = { Text(b.name) }, onClick = {
                             selectedBrokerId = b.id
                             brokerExpanded = false
+                            hasScanned = false
                         })
                     }
                 }
@@ -129,9 +130,10 @@ fun MqttBackupScreen(navController: NavController) {
 
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(
-                value = topic,
-                onValueChange = { topic = it },
-                label = { Text("Topic") },
+                value = topicPrefix,
+                onValueChange = { topicPrefix = it; hasScanned = false },
+                label = { Text("Backup topic prefix") },
+                placeholder = { Text(DEFAULT_BACKUP_PREFIX) },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -139,44 +141,88 @@ fun MqttBackupScreen(navController: NavController) {
             if (mode == "Backup") {
                 Text(
                     "Publishes your current brokers, groups and panels - gzip compressed, then " +
-                        "base64-encoded so it travels as a normal MQTT payload - as a retained message " +
-                        "on this topic.",
+                        "base64-encoded so it travels as a normal MQTT payload - as a new retained " +
+                        "message under \"$prefix/<timestamp>\", keeping every previous backup intact.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = {
+                        val fullTopic = BackupCodec.newBackupTopic(prefix)
                         val compressed = BackupCodec.compressToBase64(app.configRepository.exportJson())
-                        app.connectionManager.publish(selectedBrokerId, topic, compressed, retain = true)
-                        statusMessage = "Published (${compressed.length} bytes) to $topic"
+                        app.connectionManager.publish(selectedBrokerId, fullTopic, compressed, retain = true)
+                        statusMessage = "Published (${compressed.length} bytes) to $fullTopic"
                     },
-                    enabled = topic.isNotBlank(),
+                    enabled = prefix.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Publish Backup") }
             } else {
                 Text(
-                    "Subscribes to this topic and restores from whatever compressed backup is retained " +
-                        "there. This replaces your current brokers, groups and panels.",
+                    "Scans \"$prefix/#\" for every backup that broker has retained, newest first. " +
+                        "Restoring replaces your current brokers, groups and panels.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(16.dp))
-                Button(
+                OutlinedButton(
                     onClick = {
+                        app.connectionManager.subscribe(selectedBrokerId, "$prefix/#")
+                        hasScanned = true
                         statusMessage = null
-                        isWaitingForRestore = true
-                        app.connectionManager.subscribe(selectedBrokerId, topic)
                     },
-                    enabled = topic.isNotBlank() && !isWaitingForRestore,
+                    enabled = prefix.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Restore from Topic") }
-            }
+                ) { Text("Scan for Backups") }
 
-            if (isWaitingForRestore) {
                 Spacer(Modifier.height(16.dp))
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(8.dp))
-                    Text("Waiting for data on $topic\u2026", style = MaterialTheme.typography.bodySmall)
+                if (!hasScanned) {
+                    Text(
+                        "Tap \"Scan for Backups\" to look for retained backups on this broker.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else if (discoveredBackups.isEmpty()) {
+                    Text(
+                        "No backups found yet under \"$prefix/\" - retained messages can take a " +
+                            "moment to arrive after scanning, or there may not be any published there.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    discoveredBackups.forEach { backupTopic ->
+                        val displayTime = BackupCodec.displayTimestamp(backupTopic) ?: backupTopic
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            tonalElevation = 1.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable(enabled = restoringTopic == null) {
+                                    restoringTopic = backupTopic
+                                    val raw = payloads["$selectedBrokerId|$backupTopic"]
+                                    if (raw == null) {
+                                        statusMessage = "That backup's data isn't loaded yet - try scanning again."
+                                        restoringTopic = null
+                                    } else {
+                                        try {
+                                            app.configRepository.importJson(BackupCodec.decompressFromBase64(raw))
+                                            statusMessage = "Restored from $displayTime"
+                                        } catch (_: Exception) {
+                                            statusMessage = "Restore failed: that topic's payload wasn't a valid backup"
+                                        } finally {
+                                            restoringTopic = null
+                                        }
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(displayTime, modifier = Modifier.weight(1f))
+                                if (restoringTopic == backupTopic) {
+                                    Text("Restoring\u2026", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
