@@ -11,7 +11,8 @@ when there is other software in the mix, like Home Assistant
 
 ## Screenshots
 
-<img width="300px" src="https://github.com/evilbunny2008/Z2mDash/blob/main/design/Screenshot_20260823-223346.png?raw=true"> <img width="300px" src="https://github.com/evilbunny2008/Z2mDash/blob/main/design/Screenshot_20260823-231443.png?raw=true">
+<img width="300px" src="https://github.com/evilbunny2008/Z2mDash/blob/main/design/Screenshot_20260823-223346.png?raw=true"> <img width="300px" src="https://github.com/evilbunny2008/Z2mDash/blob/main/design/Screenshot_20260823-231443.png?raw=true"><br><br><br>
+<img width="600px" src="https://github.com/evilbunny2008/Z2mDash/blob/main/design/Screenshot_20260825-034747.png?raw=true">
 
 ## Copyright/License
 
