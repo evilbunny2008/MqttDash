@@ -140,16 +140,17 @@ fun MqttBackupScreen(navController: NavController) {
             Spacer(Modifier.height(24.dp))
             if (mode == "Backup") {
                 Text(
-                    "Publishes your current brokers, groups and panels - gzip compressed, then " +
-                        "base64-encoded so it travels as a normal MQTT payload - as a new retained " +
-                        "message under \"$prefix/<timestamp>\", keeping every previous backup intact.",
+                    "Publishes your groups and panels (not broker host/username/password - those " +
+                        "stay on this device) - gzip compressed, then base64-encoded so it travels as " +
+                        "a normal MQTT payload - as a new retained message under \"$prefix/<timestamp>\", " +
+                        "keeping every previous backup intact.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = {
                         val fullTopic = BackupCodec.newBackupTopic(prefix)
-                        val compressed = BackupCodec.compressToBase64(app.configRepository.exportJson())
+                        val compressed = BackupCodec.compressToBase64(app.configRepository.exportJson(includeBrokers = false))
                         app.connectionManager.publish(selectedBrokerId, fullTopic, compressed, retain = true)
                         statusMessage = "Published (${compressed.length} bytes) to $fullTopic"
                     },
@@ -159,7 +160,9 @@ fun MqttBackupScreen(navController: NavController) {
             } else {
                 Text(
                     "Scans \"$prefix/#\" for every backup that broker has retained, newest first. " +
-                        "Restoring replaces your current brokers, groups and panels.",
+                        "Restoring replaces your groups and panels, but keeps your current brokers as-is " +
+                        "(they weren't included in the backup) - so this only reconnects cleanly on the " +
+                        "same broker setup the backup was taken from.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(16.dp))
@@ -202,7 +205,7 @@ fun MqttBackupScreen(navController: NavController) {
                                         restoringTopic = null
                                     } else {
                                         try {
-                                            app.configRepository.importJson(BackupCodec.decompressFromBase64(raw))
+                                            app.configRepository.importJsonPreservingBrokers(BackupCodec.decompressFromBase64(raw))
                                             statusMessage = "Restored from $displayTime"
                                         } catch (_: Exception) {
                                             statusMessage = "Restore failed: that topic's payload wasn't a valid backup"

@@ -217,11 +217,35 @@ class ConfigRepository(private val context: Context) {
         )
     }
 
-    fun exportJson(): String = json.encodeToString(AppConfig.serializer(), _config.value)
+    /**
+     * @param includeBrokers Set false for the MQTT backup path - broker host/
+     * username/password shouldn't be published over MQTT even compressed, in
+     * case that topic isn't as tightly secured as the device itself. The file
+     * backup keeps brokers included, since that file stays under your control.
+     */
+    fun exportJson(includeBrokers: Boolean = true): String {
+        val toExport = if (includeBrokers) _config.value else _config.value.copy(brokers = emptyList())
+        return json.encodeToString(AppConfig.serializer(), toExport)
+    }
 
     fun importJson(text: String) {
         val imported = json.decodeFromString(AppConfig.serializer(), text)
         persist(imported)
         _config.value = imported
+    }
+
+    /**
+     * For restoring a brokerless MQTT backup: everything (groups, panels,
+     * auto-config state) comes from [text], but the current device's brokers
+     * are kept as-is rather than being wiped to an empty list. Note this only
+     * round-trips cleanly on the *same* device/broker setup the backup was
+     * taken from - panels still reference the original brokerId, so restoring
+     * onto a different device's brokers won't reconnect them automatically.
+     */
+    fun importJsonPreservingBrokers(text: String) {
+        val imported = json.decodeFromString(AppConfig.serializer(), text)
+        val merged = imported.copy(brokers = _config.value.brokers)
+        persist(merged)
+        _config.value = merged
     }
 }
