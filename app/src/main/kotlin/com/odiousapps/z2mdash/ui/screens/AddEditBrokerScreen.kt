@@ -1,5 +1,6 @@
 package com.odiousapps.z2mdash.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -72,6 +73,7 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
         )
     }
     var showAdditional by remember { mutableStateOf(false) }
+    var pickerUnavailable by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var protocolExpanded by remember { mutableStateOf(false) }
 
@@ -205,8 +207,21 @@ fun AddEditBrokerScreen(navController: NavController, brokerId: String?) {
                     )
                 }
                 if (broker.selfSignedCert) {
-                    TextButton(onClick = { certPickerLauncher.launch("*/*") }) {
+                    TextButton(onClick = {
+                        try {
+                            certPickerLauncher.launch("*/*")
+                            pickerUnavailable = false
+                        } catch (e: ActivityNotFoundException) {
+                            pickerUnavailable = true
+                        }
+                    }) {
                         Text(if (broker.selfSignedCertBase64 == null) "Select certificate file" else "Certificate selected \u2713")
+                    }
+                    if (pickerUnavailable) {
+                        Text(
+                            "No file picker app is available on this device.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

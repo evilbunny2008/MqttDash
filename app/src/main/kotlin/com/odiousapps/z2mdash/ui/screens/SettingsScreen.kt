@@ -1,5 +1,6 @@
 package com.odiousapps.z2mdash.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,11 +48,14 @@ fun SettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/gzip")
+        // Genuine plain text now (base64), so a plain, unambiguous MIME type -
+        // see BackupCodec/newBackupFileName for why this isn't gzip anymore.
+        ActivityResultContracts.CreateDocument("text/plain")
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openOutputStream(it, "wt")?.use { out ->
-                out.write(BackupCodec.compress(app.configRepository.exportJson()))
+                val base64 = BackupCodec.compressToBase64(app.configRepository.exportJson())
+                out.write(base64.toByteArray(Charsets.UTF_8))
             }
             snackbarMessage = "Configuration exported"
         }
@@ -62,16 +66,22 @@ fun SettingsScreen(navController: NavController) {
         uri?.let {
             context.contentResolver.openInputStream(it)?.use { input ->
                 val bytes = input.readBytes()
-                // Try the current gzip format first; fall back to treating the
-                // file as plain-text JSON so backups exported before this
-                // change still import fine.
-                val text = try {
-                    BackupCodec.decompress(bytes)
+                val text = bytes.toString(Charsets.UTF_8)
+                // Three formats this file could be, oldest first: plain JSON
+                // (pre-compression), raw gzip bytes (the brief .gz/.z2mbackup
+                // era), or base64-encoded gzip (current). Try newest-likeliest
+                // first so old backups still import fine either way.
+                val json = try {
+                    BackupCodec.decompressFromBase64(text)
                 } catch (_: Exception) {
-                    bytes.toString(Charsets.UTF_8)
+                    try {
+                        BackupCodec.decompress(bytes)
+                    } catch (_: Exception) {
+                        text
+                    }
                 }
                 try {
-                    app.configRepository.importJson(text)
+                    app.configRepository.importJson(json)
                     snackbarMessage = "Configuration imported"
                 } catch (_: Exception) {
                     snackbarMessage = "Import failed: not a valid config file"
@@ -136,7 +146,13 @@ fun SettingsScreen(navController: NavController) {
                     headlineContent = { Text("Configuration Backup") },
                     supportingContent = { Text("Save your brokers, groups and panels as a compressed file you own") },
                     leadingContent = { Icon(Icons.Default.Backup, contentDescription = null) },
-                    modifier = Modifier.clickable { exportLauncher.launch(BackupCodec.newBackupFileName()) }
+                    modifier = Modifier.clickable {
+                        try {
+                            exportLauncher.launch(BackupCodec.newBackupFileName())
+                        } catch (e: ActivityNotFoundException) {
+                            snackbarMessage = "No file picker app is available on this device."
+                        }
+                    }
                 )
             }
             item {
@@ -152,7 +168,11 @@ fun SettingsScreen(navController: NavController) {
                         // backups from the picker. The app already validates
                         // content itself (tries gzip, falls back to plain
                         // JSON) regardless of what the OS reports.
-                        importLauncher.launch(arrayOf("*/*"))
+                        try {
+                            importLauncher.launch(arrayOf("*/*"))
+                        } catch (e: ActivityNotFoundException) {
+                            snackbarMessage = "No file picker app is available on this device."
+                        }
                     }
                 )
             }

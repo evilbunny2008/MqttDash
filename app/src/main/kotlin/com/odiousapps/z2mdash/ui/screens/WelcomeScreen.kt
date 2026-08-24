@@ -1,5 +1,6 @@
 package com.odiousapps.z2mdash.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
+import com.odiousapps.z2mdash.data.BackupCodec
 
 /**
  * Shown instead of an empty Home screen when there are no brokers configured
@@ -51,8 +53,21 @@ fun WelcomeScreen(navController: NavController) {
         uri?.let {
             try {
                 context.contentResolver.openInputStream(it)?.use { input ->
-                    val text = input.readBytes().toString(Charsets.UTF_8)
-                    app.configRepository.importJson(text)
+                    val bytes = input.readBytes()
+                    val text = bytes.toString(Charsets.UTF_8)
+                    // Same three formats SettingsScreen's import handles -
+                    // base64+gzip (current), raw gzip (a brief earlier
+                    // format), or plain JSON (oldest, pre-compression).
+                    val json = try {
+                        BackupCodec.decompressFromBase64(text)
+                    } catch (_: Exception) {
+                        try {
+                            BackupCodec.decompress(bytes)
+                        } catch (_: Exception) {
+                            text
+                        }
+                    }
+                    app.configRepository.importJson(json)
                     navController.popBackStack()
                 }
             } catch (e: Exception) {
@@ -91,7 +106,13 @@ fun WelcomeScreen(navController: NavController) {
             ) { Text("Add a Broker") }
             Spacer(Modifier.height(12.dp))
             OutlinedButton(
-                onClick = { importLauncher.launch(arrayOf("application/json")) },
+                onClick = {
+                    try {
+                        importLauncher.launch(arrayOf("*/*"))
+                    } catch (e: ActivityNotFoundException) {
+                        errorMessage = "No file picker app is available on this device."
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Restore from Backup") }
         }
