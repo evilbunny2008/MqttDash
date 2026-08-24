@@ -78,7 +78,7 @@ fun AppNavHost() {
             composable("home") { HomeScreen(navController) }
             composable("welcome") { WelcomeScreen(navController) }
             composable("scripts") { PlaceholderScreen("Scripts") }
-            composable("terminal") { TerminalScreen(navController) }
+            composable("terminal") { TerminalScreen() }
             composable("settings") { SettingsScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
             composable("discover") { DiscoverScreen(navController) }

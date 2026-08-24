@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.mqtt.LoggedMessage
 import kotlinx.coroutines.delay
@@ -53,7 +52,7 @@ private const val MAX_LOGGED_MESSAGES_LABEL = "300"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(navController: NavController) {
+fun TerminalScreen() {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val messageLog by app.connectionManager.messageLog.collectAsState()

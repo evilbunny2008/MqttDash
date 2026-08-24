@@ -42,8 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -103,13 +104,16 @@ fun HomeScreen(navController: NavController) {
     // keeps clusters a consistent, comfortable size on any device, so the
     // manual row-packing below (see packedRows) can fit as many side-by-side
     // as actually fit, rather than relying on FlowRow's own wrapping logic.
-    val configuration = LocalConfiguration.current
+    val windowInfo = LocalWindowInfo.current
+    val density = LocalDensity.current
+    val screenWidthDp = with(density) { windowInfo.containerSize.width.toDp() }
+    val screenHeightDp = with(density) { windowInfo.containerSize.height.toDp() }
     val columnsPerRow = 3
     val standaloneTileWidth = run {
-        val referenceWidthDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp)
+        val referenceWidthDp = minOf(screenWidthDp, screenHeightDp)
         val groupHorizontalPadding = 12.dp * 2
         val gapsBetweenColumns = 8.dp * (columnsPerRow - 1)
-        val proportionalWidth = (referenceWidthDp.dp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
+        val proportionalWidth = (referenceWidthDp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
         minOf(proportionalWidth, 110.dp)
     }
 
@@ -198,7 +202,7 @@ fun HomeScreen(navController: NavController) {
                         // known width, so multiple clusters land on the same row whenever
                         // they actually fit, on any screen size or orientation.
                         val clusterCardWidth = standaloneTileWidth * columnsPerRow + 8.dp * (columnsPerRow - 1)
-                        val availableRowWidth = configuration.screenWidthDp.dp - 24.dp
+                        val availableRowWidth = screenWidthDp - 24.dp
                         val packedRows = remember(orderedClusters, standaloneTileWidth, availableRowWidth) {
                             val rows = mutableListOf<MutableList<List<Panel>>>()
                             var currentRow = mutableListOf<List<Panel>>()
