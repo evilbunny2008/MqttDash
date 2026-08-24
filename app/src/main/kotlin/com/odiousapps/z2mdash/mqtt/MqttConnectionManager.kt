@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Cap on how many recent messages the Terminal tab keeps around, oldest dropped first. */
+private const val MAX_LOGGED_MESSAGES = 300
+
+/** One entry in the Terminal tab's rolling message log. */
+data class LoggedMessage(val brokerId: String, val topic: String, val payload: String, val timestamp: Long)
+
 /**
  * App-wide singleton (held by Z2mDashApplication) that owns one MqttConnection
  * per configured broker, keeps subscriptions in sync with whatever panels exist,
@@ -43,6 +49,12 @@ class MqttConnectionManager(
 
     private val _connectionStates = MutableStateFlow<Map<String, ConnectionState>>(emptyMap())
     val connectionStates: StateFlow<Map<String, ConnectionState>> = _connectionStates
+
+    // Rolling log of the most recent messages across every broker, for the
+    // Terminal tab - separate from latestPayloads, which only keeps the
+    // single newest payload per topic and loses everything else.
+    private val _messageLog = MutableStateFlow<List<LoggedMessage>>(emptyList())
+    val messageLog: StateFlow<List<LoggedMessage>> = _messageLog
 
     private fun keyFor(brokerId: String, topic: String) = "$brokerId|$topic"
 
@@ -152,12 +164,21 @@ class MqttConnectionManager(
         scope.launch(Dispatchers.Default) {
             conn.messages.collect { msg ->
                 val key = keyFor(broker.id, msg.topic)
+                val now = System.currentTimeMillis()
                 _latestPayloads.update { it + (key to msg.payload) }
-                _latestPayloadTimestamps.update { it + (key to System.currentTimeMillis()) }
+                _latestPayloadTimestamps.update { it + (key to now) }
+                _messageLog.update { log ->
+                    val updated = log + LoggedMessage(broker.id, msg.topic, msg.payload, now)
+                    if (updated.size > MAX_LOGGED_MESSAGES) updated.takeLast(MAX_LOGGED_MESSAGES) else updated
+                }
                 schedulePersist()
             }
         }
         return conn
+    }
+
+    fun clearMessageLog() {
+        _messageLog.value = emptyList()
     }
 
     fun publish(brokerId: String, topic: String, payload: String, retain: Boolean = false) {

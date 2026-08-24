@@ -30,6 +30,7 @@ import com.odiousapps.z2mdash.ui.screens.MqttBackupScreen
 import com.odiousapps.z2mdash.ui.screens.HomeScreen
 import com.odiousapps.z2mdash.ui.screens.PlaceholderScreen
 import com.odiousapps.z2mdash.ui.screens.SettingsScreen
+import com.odiousapps.z2mdash.ui.screens.TerminalScreen
 import com.odiousapps.z2mdash.ui.screens.WelcomeScreen
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -77,7 +78,7 @@ fun AppNavHost() {
             composable("home") { HomeScreen(navController) }
             composable("welcome") { WelcomeScreen(navController) }
             composable("scripts") { PlaceholderScreen("Scripts") }
-            composable("terminal") { PlaceholderScreen("Terminal") }
+            composable("terminal") { TerminalScreen(navController) }
             composable("settings") { SettingsScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
             composable("discover") { DiscoverScreen(navController) }
