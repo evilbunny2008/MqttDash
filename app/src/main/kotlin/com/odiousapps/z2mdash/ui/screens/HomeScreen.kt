@@ -96,19 +96,21 @@ fun HomeScreen(navController: NavController) {
     var pendingClusterDelete by remember { mutableStateOf<PendingClusterDelete?>(null) }
 
     // Standalone (non-clustered) panels, and panels inside a cluster card, both
-    // lay out as an exact 3-column grid. Tile width is derived from the
-    // device's shorter dimension (its "portrait width") regardless of current
-    // orientation, so a cluster's total width stays the same either way -
-    // landscape's extra width then naturally fits multiple clusters
-    // side-by-side via the surrounding FlowRow, instead of every cluster
-    // claiming the full (now wider) screen width for itself.
+    // lay out as an exact 3-column grid. Tile width is capped at a sensible
+    // maximum rather than always scaling proportionally to screen size -
+    // otherwise a tablet's shorter dimension is still much bigger than a
+    // phone's, so tiles (and whole clusters) end up oversized there too,
+    // leaving no room for a second cluster even on a wide screen. A fixed cap
+    // keeps clusters a consistent, comfortable size on any device, so the
+    // surrounding FlowRow can fit as many side-by-side as actually fit.
     val configuration = LocalConfiguration.current
     val columnsPerRow = 3
     val standaloneTileWidth = run {
         val referenceWidthDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp)
         val groupHorizontalPadding = 12.dp * 2
         val gapsBetweenColumns = 8.dp * (columnsPerRow - 1)
-        (referenceWidthDp.dp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
+        val proportionalWidth = (referenceWidthDp.dp - groupHorizontalPadding - gapsBetweenColumns) / columnsPerRow
+        minOf(proportionalWidth, 110.dp)
     }
 
     Scaffold(
