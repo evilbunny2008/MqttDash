@@ -165,8 +165,18 @@ class MqttConnectionManager(
             conn.messages.collect { msg ->
                 val key = keyFor(broker.id, msg.topic)
                 val now = System.currentTimeMillis()
-                _latestPayloads.update { it + (key to msg.payload) }
-                _latestPayloadTimestamps.update { it + (key to now) }
+                if (msg.payload.isEmpty()) {
+                    // Standard MQTT convention: an empty retained message means
+                    // "this topic's retained value was cleared" - drop it from
+                    // our own state entirely rather than storing a blank value,
+                    // so e.g. a deleted MQTT backup actually disappears from
+                    // the restore list instead of lingering as an empty entry.
+                    _latestPayloads.update { it - key }
+                    _latestPayloadTimestamps.update { it - key }
+                } else {
+                    _latestPayloads.update { it + (key to msg.payload) }
+                    _latestPayloadTimestamps.update { it + (key to now) }
+                }
                 _messageLog.update { log ->
                     val updated = log + LoggedMessage(broker.id, msg.topic, msg.payload, now)
                     if (updated.size > MAX_LOGGED_MESSAGES) updated.takeLast(MAX_LOGGED_MESSAGES) else updated

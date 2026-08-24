@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +32,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -60,6 +63,7 @@ fun MqttBackupScreen(navController: NavController) {
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var hasScanned by remember { mutableStateOf(false) }
     var restoringTopic by remember { mutableStateOf<String?>(null) }
+    var pendingDeleteTopic by remember { mutableStateOf<String?>(null) }
 
     // Every backup topic ever discovered under "<prefix>/", newest first -
     // recomputed straight off the live payloads map, so the list updates on
@@ -223,10 +227,38 @@ fun MqttBackupScreen(navController: NavController) {
                                 if (restoringTopic == backupTopic) {
                                     Text("Restoring\u2026", style = MaterialTheme.typography.bodySmall)
                                 }
+                                IconButton(
+                                    enabled = restoringTopic == null,
+                                    onClick = { pendingDeleteTopic = backupTopic }
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete backup from $displayTime")
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            pendingDeleteTopic?.let { topicToDelete ->
+                val displayTime = BackupCodec.displayTimestamp(topicToDelete) ?: topicToDelete
+                AlertDialog(
+                    onDismissRequest = { pendingDeleteTopic = null },
+                    title = { Text("Delete this backup?") },
+                    text = { Text("Removes the retained backup from $displayTime. This can't be undone.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            // Publishing an empty retained message is the standard
+                            // MQTT way to clear a retained value - the broker drops
+                            // it, and our own subscription echoes that back to us,
+                            // removing it from latestPayloads (see
+                            // MqttConnectionManager) so it disappears from this list.
+                            app.connectionManager.publish(selectedBrokerId, topicToDelete, "", retain = true)
+                            statusMessage = "Deleted backup from $displayTime"
+                            pendingDeleteTopic = null
+                        }) { Text("Delete") }
+                    },
+                    dismissButton = { TextButton(onClick = { pendingDeleteTopic = null }) { Text("Cancel") } }
+                )
             }
 
             statusMessage?.let {
