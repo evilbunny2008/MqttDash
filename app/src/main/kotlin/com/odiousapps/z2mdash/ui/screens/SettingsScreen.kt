@@ -48,14 +48,11 @@ fun SettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        // Genuine plain text now (base64), so a plain, unambiguous MIME type -
-        // see BackupCodec/newBackupFileName for why this isn't gzip anymore.
-        ActivityResultContracts.CreateDocument("text/plain")
+        ActivityResultContracts.CreateDocument("application/gzip")
     ) { uri: Uri? ->
         uri?.let {
             context.contentResolver.openOutputStream(it, "wt")?.use { out ->
-                val base64 = BackupCodec.compressToBase64(app.configRepository.exportJson())
-                out.write(base64.toByteArray(Charsets.UTF_8))
+                out.write(BackupCodec.compress(app.configRepository.exportJson()))
             }
             snackbarMessage = "Configuration exported"
         }

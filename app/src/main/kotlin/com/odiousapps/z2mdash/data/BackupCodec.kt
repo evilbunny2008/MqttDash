@@ -26,14 +26,8 @@ object BackupCodec {
     /** A new "<baseTopic>/<timestamp>" topic for a fresh backup, e.g. "z2mdash/backup/2026-08-24_01-45-30". */
     fun newBackupTopic(baseTopic: String): String = "${baseTopic.trim().trim('/')}/${currentTimestamp()}"
 
-    /** A timestamped filename for a fresh file backup, e.g. "z2mdash-config-2026-08-24_01-45-30.txt". */
-    // Plain ".txt", and the file content is base64 text (see SettingsScreen's
-    // use of compressToBase64/decompressFromBase64), not raw gzip bytes -
-    // some file managers sniff a file's actual byte content for the gzip
-    // magic number (0x1f 0x8b) and offer to "extract" it instead of letting
-    // it be selected/returned, regardless of what extension or MIME type the
-    // file was declared with. Base64 text has no such signature to trip on.
-    fun newBackupFileName(): String = "z2mdash-config-${currentTimestamp()}.txt"
+    /** A timestamped filename for a fresh file backup, e.g. "z2mdash-config-2026-08-24_01-45-30.json.gz". */
+    fun newBackupFileName(): String = "z2mdash-config-${currentTimestamp()}.json.gz"
 
     /** Parses the trailing "<timestamp>" segment of a backup topic back into a display-friendly string, or null if it doesn't match. */
     fun displayTimestamp(backupTopic: String): String? {
