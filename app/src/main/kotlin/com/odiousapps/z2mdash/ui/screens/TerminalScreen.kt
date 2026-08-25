@@ -39,11 +39,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -93,6 +95,36 @@ fun TerminalScreen() {
     // Only recomposes when this actually flips true/false, not on every pixel
     // scrolled - the button just needs to know "am I away from the top".
     val showJumpToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+
+    // Whether the user is currently sitting at the top, wanting to keep seeing
+    // the latest entry. Updated only once a genuine interactive scroll/fling
+    // settles (isScrollInProgress) - a passive index shift from new content
+    // being inserted above (LazyColumn's key-based anchoring otherwise keeps
+    // whatever was visible in the same visual spot, which would silently
+    // scroll the user away from a brand new top item) never sets this false,
+    // since that isn't a real scroll gesture.
+    var isAnchoredToTop by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { inProgress ->
+            if (!inProgress) {
+                isAnchoredToTop = listState.firstVisibleItemIndex == 0 &&
+                    listState.firstVisibleItemScrollOffset == 0
+            }
+        }
+    }
+
+    // New entries render at index 0 (newest first) - jump back there whenever
+    // one arrives while anchored to top, so the latest message actually stays
+    // in view instead of being pushed off-screen by the anchoring above.
+    var lastEntryCount by remember { mutableIntStateOf(filtered.size) }
+    LaunchedEffect(filtered.size) {
+        if (filtered.size != lastEntryCount) {
+            if (isAnchoredToTop) {
+                listState.scrollToItem(0)
+            }
+            lastEntryCount = filtered.size
+        }
+    }
 
     Scaffold(
         topBar = {
