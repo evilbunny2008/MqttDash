@@ -161,5 +161,12 @@ data class AppConfig(
     val pendingAutoConfigDevices: List<PendingAutoConfigDevice> = emptyList(),
     // "brokerId|appConfigTopic" composite keys the user has explicitly dismissed,
     // so a declined device isn't re-prompted on every subsequent scan.
-    val ignoredAppConfigTopics: List<String> = emptyList()
+    val ignoredAppConfigTopics: List<String> = emptyList(),
+    // Smoke detector monitoring: watches every incoming payload, across every
+    // topic, for a JSON "smoke": true field - not scoped to any specific
+    // configured device/panel, so nothing is ever missed just because a
+    // detector wasn't explicitly added as a panel. Defaults to on, given the
+    // safety purpose.
+    val smokeAlertsEnabled: Boolean = true,
+    val smokeAlertSoundEnabled: Boolean = true
 )

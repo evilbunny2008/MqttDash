@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
@@ -133,6 +135,37 @@ fun SettingsScreen(navController: NavController) {
                             checked = config.backgroundWorkEnabled,
                             onCheckedChange = { enabled ->
                                 app.configRepository.update { it.copy(backgroundWorkEnabled = enabled) }
+                            }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Smoke Alerts") },
+                    supportingContent = { Text("Notify if any device reports smoke detected") },
+                    leadingContent = { Icon(Icons.Default.Warning, contentDescription = null) },
+                    trailingContent = {
+                        Switch(
+                            checked = config.smokeAlertsEnabled,
+                            onCheckedChange = { enabled ->
+                                app.configRepository.update { it.copy(smokeAlertsEnabled = enabled) }
+                            }
+                        )
+                    }
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text("Smoke Alert Sound") },
+                    supportingContent = { Text("Play a loud alarm-style sound alongside the notification") },
+                    leadingContent = { Icon(Icons.Default.VolumeUp, contentDescription = null) },
+                    trailingContent = {
+                        Switch(
+                            checked = config.smokeAlertSoundEnabled,
+                            enabled = config.smokeAlertsEnabled,
+                            onCheckedChange = { enabled ->
+                                app.configRepository.update { it.copy(smokeAlertSoundEnabled = enabled) }
                             }
                         )
                     }
