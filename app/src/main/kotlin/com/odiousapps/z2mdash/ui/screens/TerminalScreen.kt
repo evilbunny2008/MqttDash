@@ -66,7 +66,11 @@ private const val MAX_LOGGED_MESSAGES_LABEL = "300"
 fun TerminalScreen() {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
-    val messageLog by app.connectionManager.messageLog.collectAsState()
+    // Kept as the raw State object (not the `by`-delegated value) specifically
+    // so snapshotFlow below can observe it directly - see the LaunchedEffect
+    // further down for why.
+    val messageLogState = app.connectionManager.messageLog.collectAsState()
+    val messageLog = messageLogState.value
 
     var filterText by remember { mutableStateOf("") }
     var selectedBrokerId by remember { mutableStateOf(ALL_BROKERS) }
@@ -116,13 +120,22 @@ fun TerminalScreen() {
     // New entries render at index 0 (newest first) - jump back there whenever
     // one arrives while anchored to top, so the latest message actually stays
     // in view instead of being pushed off-screen by the anchoring above.
-    var lastEntryCount by remember { mutableIntStateOf(filtered.size) }
-    LaunchedEffect(filtered.size) {
-        if (filtered.size != lastEntryCount) {
-            if (isAnchoredToTop) {
-                listState.scrollToItem(0)
+    // A single long-lived effect (keyed on listState, which never changes)
+    // reacting to a snapshotFlow, rather than LaunchedEffect(filtered.size) -
+    // that would restart (cancel + relaunch) its whole coroutine on every
+    // single incoming message, and on a busy broker, each new message could
+    // cancel the previous scroll before it settles, thrashing the main thread
+    // hard enough to trigger an ANR. snapshotFlow naturally conflates rapid
+    // changes down to the latest value instead of queuing every intermediate one.
+    var lastMessageLogSize by remember { mutableIntStateOf(messageLogState.value.size) }
+    LaunchedEffect(listState) {
+        snapshotFlow { messageLogState.value.size }.collect { size ->
+            if (size != lastMessageLogSize) {
+                lastMessageLogSize = size
+                if (isAnchoredToTop) {
+                    listState.scrollToItem(0)
+                }
             }
-            lastEntryCount = filtered.size
         }
     }
 
