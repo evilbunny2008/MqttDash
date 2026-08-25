@@ -1,6 +1,7 @@
 package com.odiousapps.z2mdash.ui.screens
 
 import android.text.format.DateUtils
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -699,45 +700,68 @@ private fun addPendingDevice(
     payloads: Map<String, String>,
     pending: PendingAutoConfigDevice
 ) {
-    val appConfigPayload = payloads["${pending.brokerId}|${pending.appConfigTopic}"] ?: return
-    val deviceConfig = SensorDiscovery.parseDeviceAppConfig(appConfigPayload) ?: return
-    val sensorPayload = payloads["${pending.brokerId}|${pending.sensorTopic}"]
-    val sensorFieldKeys = sensorPayload?.let { SensorDiscovery.fieldKeysOf(it) } ?: emptySet()
+    val tag = "Z2mDash-AddDevice"
+    try {
+        val appConfigPayload = payloads["${pending.brokerId}|${pending.appConfigTopic}"]
+        if (appConfigPayload == null) {
+            Log.w(tag, "No payload found for ${pending.brokerId}|${pending.appConfigTopic} - aborting add")
+            return
+        }
+        val deviceConfig = SensorDiscovery.parseDeviceAppConfig(appConfigPayload)
+        if (deviceConfig == null) {
+            Log.w(tag, "parseDeviceAppConfig returned null for payload: $appConfigPayload")
+            return
+        }
+        val sensorPayload = payloads["${pending.brokerId}|${pending.sensorTopic}"]
+        val sensorFieldKeys = sensorPayload?.let { SensorDiscovery.fieldKeysOf(it) } ?: emptySet()
 
-    val newPanels = SensorDiscovery.buildPanels(
-        brokerId = pending.brokerId,
-        sensorTopic = pending.sensorTopic,
-        sensorFieldKeys = sensorFieldKeys,
-        appConfigTopic = pending.appConfigTopic,
-        appConfigPayload = appConfigPayload,
-        deviceConfig = deviceConfig
-    )
-    if (newPanels.isEmpty()) return
-
-    val targetGroupId = deviceConfig.group?.let { name ->
-        config.groups.find { it.name.equals(name, ignoreCase = true) }?.id
-            ?: UUID.randomUUID().toString().also { id ->
-                app.configRepository.upsertGroup(PanelGroup(id = id, name = name))
-            }
-    } ?: config.groups.firstOrNull()?.id
-        ?: UUID.randomUUID().toString().also { id ->
-            app.configRepository.upsertGroup(PanelGroup(id = id, name = "Discovered Sensors"))
+        val newPanels = SensorDiscovery.buildPanels(
+            brokerId = pending.brokerId,
+            sensorTopic = pending.sensorTopic,
+            sensorFieldKeys = sensorFieldKeys,
+            appConfigTopic = pending.appConfigTopic,
+            appConfigPayload = appConfigPayload,
+            deviceConfig = deviceConfig
+        )
+        if (newPanels.isEmpty()) {
+            Log.w(tag, "buildPanels produced zero panels for ${pending.deviceName} - aborting add. " +
+                "deviceConfig.panelFields=${deviceConfig.panelFields}, sensorFieldKeys=$sensorFieldKeys")
+            return
         }
 
-    val device = AutoConfiguredDevice(
-        brokerId = pending.brokerId,
-        sensorTopic = pending.sensorTopic,
-        appConfigTopic = pending.appConfigTopic,
-        lastAppliedPayload = appConfigPayload,
-        createdPanelIds = newPanels.map { it.id }
-    )
-    app.configRepository.applyDeviceAutoConfig(
-        oldPanelIds = emptySet(),
-        updatedDevice = device,
-        targetGroupId = targetGroupId,
-        newPanels = newPanels
-    )
-    app.configRepository.removePendingAutoConfigDevice(pending.brokerId, pending.appConfigTopic)
+        val targetGroupId = deviceConfig.group?.let { name ->
+            config.groups.find { it.name.equals(name, ignoreCase = true) }?.id
+                ?: UUID.randomUUID().toString().also { id ->
+                    app.configRepository.upsertGroup(PanelGroup(id = id, name = name))
+                }
+        } ?: config.groups.firstOrNull()?.id
+            ?: UUID.randomUUID().toString().also { id ->
+                app.configRepository.upsertGroup(PanelGroup(id = id, name = "Discovered Sensors"))
+            }
+
+        val device = AutoConfiguredDevice(
+            brokerId = pending.brokerId,
+            sensorTopic = pending.sensorTopic,
+            appConfigTopic = pending.appConfigTopic,
+            lastAppliedPayload = appConfigPayload,
+            createdPanelIds = newPanels.map { it.id }
+        )
+        app.configRepository.applyDeviceAutoConfig(
+            oldPanelIds = emptySet(),
+            updatedDevice = device,
+            targetGroupId = targetGroupId,
+            newPanels = newPanels
+        )
+        app.configRepository.removePendingAutoConfigDevice(pending.brokerId, pending.appConfigTopic)
+        Log.i(tag, "Added ${newPanels.size} panels for ${pending.deviceName} into group $targetGroupId")
+    } catch (e: Exception) {
+        // Deliberately caught and logged rather than left to propagate - a
+        // silent early-return elsewhere in this function was already easy to
+        // mistake for "the button does nothing"; an uncaught exception here
+        // would be worse (an unexplained crash), so this at least surfaces
+        // what actually went wrong in Logcat.
+        Log.e(tag, "addPendingDevice failed for ${pending.deviceName}", e)
+    }
 }
 
 /** A dismissible card prompting the user to accept or ignore a newly-detected auto-config device. */
