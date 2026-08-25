@@ -3,6 +3,7 @@ package com.odiousapps.z2mdash.data
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -106,6 +107,55 @@ object SensorDiscovery {
             val appTopic = "$topic/app".takeIf { it in allTopics }
             DiscoveredSensor(topic, fields, idealTopic, appTopic)
         }.sortedWith(compareByDescending<DiscoveredSensor> { it.appConfigTopic != null }.thenBy { it.topic })
+    }
+
+    /**
+     * Rewrites a device's "/app" payload with updated ordering - panel_order
+     * for sensor fields, order for each control - matching [orderByFieldOrLabel]
+     * (keyed by sensor field name, matching a "panels" array entry, or by
+     * control label, matching a "controls" array entry's "label"). Everything
+     * else in the payload (name, group, labels, on/off payloads, etc.) passes
+     * through completely unchanged. Returns null if the payload isn't a JSON
+     * object, so a manual reorder of auto-configured panels can push its new
+     * order back to the device's own retained config without ever having to
+     * reconstruct the rest of that config from scratch.
+     */
+    fun updateOrderingInAppPayload(currentPayload: String, orderByFieldOrLabel: Map<String, Int>): String? = try {
+        val obj = Json.parseToJsonElement(currentPayload) as? JsonObject
+        if (obj == null) {
+            null
+        } else {
+            val mutableFields = obj.toMutableMap()
+
+            val panelsArray = obj["panels"] as? JsonArray
+            if (panelsArray != null) {
+                val panelOrderArray = panelsArray.map { fieldElement ->
+                    val fieldName = (fieldElement as? JsonPrimitive)?.contentOrNull
+                    val order = fieldName?.let { orderByFieldOrLabel[it] }
+                    if (order != null) JsonPrimitive(order) else JsonNull
+                }
+                mutableFields["panel_order"] = JsonArray(panelOrderArray)
+            }
+
+            val controlsArray = obj["controls"] as? JsonArray
+            if (controlsArray != null) {
+                val updatedControls = controlsArray.map { controlElement ->
+                    val controlObj = controlElement as? JsonObject
+                    val label = (controlObj?.get("label") as? JsonPrimitive)?.contentOrNull
+                    val order = label?.let { orderByFieldOrLabel[it] }
+                    if (controlObj != null && order != null) {
+                        JsonObject(controlObj.toMutableMap().apply { put("order", JsonPrimitive(order)) })
+                    } else {
+                        controlElement
+                    }
+                }
+                mutableFields["controls"] = JsonArray(updatedControls)
+            }
+
+            Json.encodeToString(JsonElement.serializer(), JsonObject(mutableFields))
+        }
+    } catch (_: Exception) {
+        null
     }
 
     /** Parses a "<topic>/app" payload into a DeviceAppConfig, or null if it doesn't look like one. */
@@ -287,5 +337,49 @@ object SensorDiscovery {
         key.contains("moisture", ignoreCase = true) -> "%"
         key.contains("battery", ignoreCase = true) -> "%"
         else -> ""
+    }
+
+    /**
+     * Rewrites a device's current "/app" payload with updated ordering only -
+     * "panel_order" for sensor fields (matched by field name, the "panels"
+     * array entry text) and "order" per control (matched by its "label") -
+     * keyed by [orderByFieldOrLabel]. Everything else in the payload (name,
+     * group, labels, on/off payloads, etc.) passes through completely
+     * unchanged. Returns null if the payload isn't a JSON object.
+     */
+    fun updateOrderingInAppPayload(currentPayload: String, orderByFieldOrLabel: Map<String, Int>): String? {
+        return try {
+            val obj = Json.parseToJsonElement(currentPayload) as? JsonObject ?: return null
+            val mutableFields = obj.toMutableMap()
+
+            val panelsArray = obj["panels"] as? JsonArray
+            if (panelsArray != null) {
+                val panelOrderArray = panelsArray.map { fieldElement ->
+                    val fieldName = (fieldElement as? JsonPrimitive)?.contentOrNull
+                    val order = fieldName?.let { orderByFieldOrLabel[it] }
+                    if (order != null) JsonPrimitive(order) else JsonNull
+                }
+                mutableFields["panel_order"] = JsonArray(panelOrderArray)
+            }
+
+            val controlsArray = obj["controls"] as? JsonArray
+            if (controlsArray != null) {
+                val updatedControls = controlsArray.map { controlElement ->
+                    val controlObj = controlElement as? JsonObject ?: return@map controlElement
+                    val label = (controlObj["label"] as? JsonPrimitive)?.contentOrNull
+                    val order = label?.let { orderByFieldOrLabel[it] }
+                    if (order != null) {
+                        JsonObject(controlObj.toMutableMap().apply { put("order", JsonPrimitive(order)) })
+                    } else {
+                        controlElement
+                    }
+                }
+                mutableFields["controls"] = JsonArray(updatedControls)
+            }
+
+            Json.encodeToString(JsonElement.serializer(), JsonObject(mutableFields))
+        } catch (_: Exception) {
+            null
+        }
     }
 }

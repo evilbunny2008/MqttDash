@@ -1,8 +1,12 @@
 package com.odiousapps.z2mdash.ui.screens
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,15 +40,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -60,6 +71,7 @@ import com.odiousapps.z2mdash.ui.components.SensorAlert
 import com.odiousapps.z2mdash.ui.components.SensorTile
 import com.odiousapps.z2mdash.ui.components.ToggleTile
 import java.util.UUID
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -315,6 +327,37 @@ fun HomeScreen(navController: NavController) {
 
 private data class PendingClusterDelete(val groupId: String, val name: String, val panelIds: List<String>)
 
+/**
+ * If this cluster's panels belong to an auto-configured device, publishes an
+ * updated (retained) "/app" payload reflecting the new panel order, so the
+ * device's own config topic stays in sync with a manual reorder - otherwise,
+ * a future republish of that topic (for an unrelated reason) would rebuild
+ * the panels using the device's original order, silently undoing this.
+ */
+private fun pushOrderUpdateIfAutoConfigured(
+    app: Z2mDashApplication,
+    payloads: Map<String, String>,
+    orderedPanelIds: List<String>,
+    clusterPanels: List<Panel>
+) {
+    val config = app.configRepository.config.value
+    val panelIdSet = orderedPanelIds.toSet()
+    val device = config.autoConfiguredDevices.find { it.createdPanelIds.any { id -> id in panelIdSet } } ?: return
+    val currentPayload = payloads["${device.brokerId}|${device.appConfigTopic}"] ?: return
+
+    val orderByFieldOrLabel: Map<String, Int> = orderedPanelIds.withIndex().mapNotNull { (index, id) ->
+        val panel = clusterPanels.find { it.id == id } ?: return@mapNotNull null
+        val key = when (panel) {
+            is Panel.Sensor -> panel.jsonPath
+            is Panel.Toggle -> panel.label
+        }
+        key to index
+    }.toMap()
+
+    val updatedPayload = SensorDiscovery.updateOrderingInAppPayload(currentPayload, orderByFieldOrLabel) ?: return
+    app.connectionManager.publish(device.brokerId, device.appConfigTopic, updatedPayload, retain = true)
+}
+
 /** Renders a bordered card containing every panel in [panels] ([columns] per row), with [name] as a caption below. */
 @Composable
 private fun ClusterCard(
@@ -366,6 +409,27 @@ private fun ClusterCard(
         }
     }
 
+    // Drag-to-reorder state, local to this one cluster card. Long-press
+    // directly on a tile starts the drag (via detectDragGesturesAfterLongPress
+    // on each tile's own modifier chain, ahead of that tile's plain
+    // short-press-to-edit clickable) - no separate reorder-mode toggle or icon
+    // needed. Panels render in a plain Column/Row here (not a LazyColumn), so
+    // unlike the Groups screen's drag-reorder there's no LazyListState
+    // scroll-anchor tracking to fight, but the same "don't actually move
+    // anything during the drag" principle still applies for its own sake: it
+    // keeps the interaction simple and avoids offset-compensation math
+    // entirely. Rows stay static; only the dragged tile is highlighted, and
+    // the drop target tile gets an outline. The real reorder - and, if this
+    // cluster came from an auto-configured device, a republished /app message
+    // reflecting the new order - commits once, when the drag ends.
+    var draggedPanelId by remember { mutableStateOf<String?>(null) }
+    var draggedFromIndex by remember { mutableIntStateOf(-1) }
+    var draggedToIndex by remember { mutableIntStateOf(-1) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var tileWidthPx by remember { mutableFloatStateOf(0f) }
+    var tileHeightPx by remember { mutableFloatStateOf(0f) }
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
@@ -376,20 +440,93 @@ private fun ClusterCard(
         // fixed width instead of bunching to the left with empty space beside it.
         val fullRowWidth = tileWidth * columns + 8.dp * (columns - 1)
         Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            panels.chunked(columns).forEach { row ->
+            panels.chunked(columns).forEachIndexed { rowIndex, row ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     modifier = Modifier.width(fullRowWidth)
                 ) {
-                    row.forEach { panel ->
-                        PanelTile(
-                            panel = panel,
-                            groupId = groupId,
-                            payloads = payloads,
-                            app = app,
-                            navController = navController,
-                            modifier = Modifier.width(tileWidth)
-                        )
+                    row.forEachIndexed { columnIndex, panel ->
+                        val panelIndex = rowIndex * columns + columnIndex
+                        val isDragging = draggedPanelId == panel.id
+                        val isDropTarget = draggedPanelId != null &&
+                            draggedPanelId != panel.id &&
+                            panelIndex == draggedToIndex
+
+                        Box(
+                            modifier = Modifier
+                                .width(tileWidth)
+                                .then(
+                                    if (isDropTarget) {
+                                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            PanelTile(
+                                panel = panel,
+                                groupId = groupId,
+                                payloads = payloads,
+                                app = app,
+                                navController = navController,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(if (isDragging) 0.5f else 1f)
+                                    .onGloballyPositioned { coordinates ->
+                                        if (tileWidthPx == 0f) tileWidthPx = coordinates.size.width.toFloat()
+                                        if (tileHeightPx == 0f) tileHeightPx = coordinates.size.height.toFloat()
+                                    }
+                                    .pointerInput(panel.id) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                draggedPanelId = panel.id
+                                                draggedFromIndex = panelIndex
+                                                draggedToIndex = panelIndex
+                                                dragOffsetX = 0f
+                                                dragOffsetY = 0f
+                                            },
+                                            onDragEnd = {
+                                                val fromIndex = draggedFromIndex
+                                                val toIndex = draggedToIndex
+                                                if (toIndex != fromIndex && fromIndex >= 0 && toIndex >= 0) {
+                                                    val reordered = panels.toMutableList()
+                                                    val moved = reordered.removeAt(fromIndex)
+                                                    reordered.add(toIndex, moved)
+                                                    val orderedIds = reordered.map { it.id }
+                                                    app.configRepository.reorderPanelsInCluster(groupId, orderedIds)
+                                                    pushOrderUpdateIfAutoConfigured(app, payloads, orderedIds, panels)
+                                                }
+                                                draggedPanelId = null
+                                                draggedFromIndex = -1
+                                                draggedToIndex = -1
+                                                dragOffsetX = 0f
+                                                dragOffsetY = 0f
+                                            },
+                                            onDragCancel = {
+                                                draggedPanelId = null
+                                                draggedFromIndex = -1
+                                                draggedToIndex = -1
+                                                dragOffsetX = 0f
+                                                dragOffsetY = 0f
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragOffsetX += dragAmount.x
+                                                dragOffsetY += dragAmount.y
+                                                val w = tileWidthPx
+                                                val h = tileHeightPx
+                                                if (w > 0f && h > 0f) {
+                                                    val columnDelta = (dragOffsetX / w).roundToInt()
+                                                    val rowDelta = (dragOffsetY / h).roundToInt()
+                                                    val linearDelta = rowDelta * columns + columnDelta
+                                                    draggedToIndex = (draggedFromIndex + linearDelta)
+                                                        .coerceIn(0, panels.lastIndex)
+                                                }
+                                            }
+                                        )
+                                    }
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -451,7 +588,7 @@ private fun PanelTile(
                 unit = panel.unit,
                 alert = alert,
                 label = panel.label,
-                onClick = { navController.navigate("group/$groupId/panel/${panel.id}") }
+                onEdit = { navController.navigate("group/$groupId/panel/${panel.id}") }
             )
         }
 
@@ -477,10 +614,45 @@ private fun PanelTile(
                         if (isOn) panel.offPayload else panel.onPayload
                     )
                 },
-                onLongPress = { navController.navigate("group/$groupId/panel/${panel.id}") }
+                onEdit = { navController.navigate("group/$groupId/panel/${panel.id}") }
             )
         }
     }
+}
+
+/**
+ * If the just-reordered cluster's panels belong to an auto-configured device
+ * (one whose panels were built from its own "/app" topic), rewrites that
+ * device's current /app payload with updated ordering info matching the new
+ * arrangement and republishes it retained - so a later, unrelated republish
+ * of that topic (which the background reconciler treats as authoritative)
+ * doesn't quietly revert this manual reorder back to whatever order the
+ * device's own config originally declared. A no-op for manually-added panels
+ * that were never auto-configured in the first place.
+ */
+private fun pushOrderUpdateIfAutoConfigured(
+    app: Z2mDashApplication,
+    payloads: Map<String, String>,
+    orderedPanelIds: List<String>,
+    panels: List<Panel>
+) {
+    val config = app.configRepository.config.value
+    val panelIdSet = orderedPanelIds.toSet()
+    val device = config.autoConfiguredDevices.find { it.createdPanelIds.any { id -> id in panelIdSet } } ?: return
+    val currentPayload = payloads["${device.brokerId}|${device.appConfigTopic}"] ?: return
+
+    val panelById = panels.associateBy { it.id }
+    val orderByFieldOrLabel = orderedPanelIds.withIndex().mapNotNull { (index, id) ->
+        val panel = panelById[id] ?: return@mapNotNull null
+        val key = when (panel) {
+            is Panel.Sensor -> panel.jsonPath
+            is Panel.Toggle -> panel.label
+        }
+        key to index
+    }.toMap()
+
+    val updatedPayload = SensorDiscovery.updateOrderingInAppPayload(currentPayload, orderByFieldOrLabel) ?: return
+    app.connectionManager.publish(device.brokerId, device.appConfigTopic, updatedPayload, retain = true)
 }
 
 /** Builds and stores the panels for a newly-accepted pending device, then clears it from the pending list. */

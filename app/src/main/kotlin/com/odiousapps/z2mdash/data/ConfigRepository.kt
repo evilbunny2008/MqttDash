@@ -111,6 +111,34 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = cfg.groups.map { if (it.id == groupId) it.copy(collapsed = collapsed) else it })
     }
 
+    /**
+     * Reassigns displayOrder for every panel in one cluster to match [orderedPanelIds]
+     * (first = lowest), leaving every other cluster/panel untouched. Keeps the
+     * cluster's *own* overall position among other clusters unchanged - that's
+     * driven by the minimum displayOrder among its panels, so this preserves
+     * that minimum and only spreads values upward from it, rather than
+     * resetting to 0-based values that could accidentally jump the whole
+     * cluster to the front of its group.
+     */
+    fun reorderPanelsInCluster(groupId: String, orderedPanelIds: List<String>) = update { cfg ->
+        val updatedGroups = cfg.groups.map { g ->
+            if (g.id != groupId) return@map g
+            val panelIdSet = orderedPanelIds.toSet()
+            val baseOrder = g.panels.filter { it.id in panelIdSet }
+                .minOfOrNull { it.displayOrder } ?: 0
+            val newOrderByPanelId = orderedPanelIds.withIndex()
+                .associate { (index, id) -> id to (baseOrder + index) }
+            g.copy(panels = g.panels.map { panel ->
+                val newOrder = newOrderByPanelId[panel.id] ?: return@map panel
+                when (panel) {
+                    is Panel.Sensor -> panel.copy(displayOrder = newOrder)
+                    is Panel.Toggle -> panel.copy(displayOrder = newOrder)
+                }
+            })
+        }
+        cfg.copy(groups = updatedGroups)
+    }
+
     fun addPanelToGroup(groupId: String, panel: Panel) = update { cfg ->
         cfg.copy(groups = cfg.groups.map { g ->
             if (g.id == groupId) g.copy(panels = g.panels + panel) else g

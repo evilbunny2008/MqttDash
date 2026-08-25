@@ -6,8 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -61,7 +60,6 @@ private fun iconFor(tileIcon: TileIcon): ImageVector = when (tileIcon) {
     TileIcon.LIGHT -> Icons.Default.Lightbulb
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SensorTile(
     modifier: Modifier = Modifier,
@@ -70,8 +68,7 @@ fun SensorTile(
     unit: String,
     label: String,
     alert: SensorAlert = SensorAlert.NONE,
-    onClick: () -> Unit = {},
-    onLongPress: (() -> Unit)? = null
+    onEdit: () -> Unit = {}
 ) {
     val flashingAlertColor = when (alert) {
         SensorAlert.BELOW_MIN -> AlertRed
@@ -100,7 +97,7 @@ fun SensorTile(
     Surface(
         modifier = modifier
             .heightIn(min = 120.dp)
-            .combinedClickable(onClick = onClick, onLongClick = { onLongPress?.invoke() }),
+            .clickable(onClick = onEdit),
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
         tonalElevation = if (flashingAlertColor != null || alert == SensorAlert.IN_RANGE) 0.dp else 1.dp
@@ -132,7 +129,6 @@ fun SensorTile(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ToggleTile(
     modifier: Modifier = Modifier,
@@ -140,12 +136,12 @@ fun ToggleTile(
     label: String,
     isOn: Boolean,
     onToggle: () -> Unit,
-    onLongPress: (() -> Unit)? = null
+    onEdit: () -> Unit = {}
 ) {
     Surface(
         modifier = modifier
             .heightIn(min = 120.dp)
-            .combinedClickable(onClick = onToggle, onLongClick = { onLongPress?.invoke() }),
+            .clickable(onClick = onEdit),
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
@@ -156,6 +152,9 @@ fun ToggleTile(
         ) {
             Icon(iconFor(icon), contentDescription = null)
             Spacer(Modifier.height(4.dp))
+            // The switch has its own independent tap target, so toggling still
+            // works directly - the surrounding card's own click (short press)
+            // now opens edit instead, and long press starts a drag.
             Switch(checked = isOn, onCheckedChange = { onToggle() })
             Spacer(Modifier.height(8.dp))
             Text(
