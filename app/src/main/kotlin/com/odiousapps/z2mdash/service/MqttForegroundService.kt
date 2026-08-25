@@ -3,6 +3,7 @@ package com.odiousapps.z2mdash.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
@@ -32,11 +33,21 @@ class MqttForegroundService : Service() {
             CHANNEL_ID, "MQTT connection", NotificationManager.IMPORTANCE_LOW
         )
         getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val pendingIntent = launchIntent?.let {
+            PendingIntent.getActivity(
+                this, 0, it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Z2M Dash")
             .setContentText("Maintaining broker connections")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)
+            .setContentIntent(pendingIntent)
             .build()
     }
 

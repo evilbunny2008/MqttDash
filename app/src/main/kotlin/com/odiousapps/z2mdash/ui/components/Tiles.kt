@@ -138,10 +138,18 @@ fun ToggleTile(
     onToggle: () -> Unit,
     onEdit: () -> Unit = {}
 ) {
+    // The edit click is deliberately NOT on the whole Surface - Switch has a
+    // Material-mandated 48dp minimum touch target for accessibility, which on
+    // a tile this small (roughly 110x120dp) can extend well past its visible
+    // bounds and swallow most or all of the surrounding area, making the
+    // "tap anywhere else to edit" click practically unreachable. The icon and
+    // label are given their own explicit clickable regions instead, which
+    // can't overlap the switch's touch target since they're structurally
+    // separate elements. A long-press anywhere on the tile (including on the
+    // icon/label, since plain clickable doesn't intercept long-press) still
+    // reaches the drag detector supplied via the outer modifier parameter.
     Surface(
-        modifier = modifier
-            .heightIn(min = 120.dp)
-            .clickable(onClick = onEdit),
+        modifier = modifier.heightIn(min = 120.dp),
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
@@ -150,11 +158,8 @@ fun ToggleTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(iconFor(icon), contentDescription = null)
+            Icon(iconFor(icon), contentDescription = null, modifier = Modifier.clickable(onClick = onEdit))
             Spacer(Modifier.height(4.dp))
-            // The switch has its own independent tap target, so toggling still
-            // works directly - the surrounding card's own click (short press)
-            // now opens edit instead, and long press starts a drag.
             Switch(checked = isOn, onCheckedChange = { onToggle() })
             Spacer(Modifier.height(8.dp))
             Text(
@@ -162,7 +167,7 @@ fun ToggleTile(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit)
             )
         }
     }
