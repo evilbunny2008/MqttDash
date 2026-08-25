@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -85,8 +85,14 @@ fun TerminalScreen() {
         }
     }
 
+    // Chronological order (oldest first, newest last) - matches how
+    // MqttConnectionManager already stores the log (appends to the end), and
+    // lets new entries land at the bottom without disturbing anything above,
+    // unlike the earlier newest-first/prepend approach where every new
+    // message required fighting LazyColumn's own anchor-preservation just to
+    // stay visible.
     val filtered = remember(messageLog, filterText, selectedBrokerId) {
-        messageLog.asReversed().filter { entry ->
+        messageLog.filter { entry ->
             (selectedBrokerId == ALL_BROKERS || entry.brokerId == selectedBrokerId) &&
                 (filterText.isBlank() ||
                     entry.topic.contains(filterText, ignoreCase = true) ||
@@ -97,43 +103,47 @@ fun TerminalScreen() {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     // Only recomposes when this actually flips true/false, not on every pixel
-    // scrolled - the button just needs to know "am I away from the top".
-    val showJumpToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    // scrolled - the button just needs to know "am I away from the bottom".
+    val showJumpToBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible == null || lastVisible.index != layoutInfo.totalItemsCount - 1
+        }
+    }
 
-    // Whether the user is currently sitting at the top, wanting to keep seeing
-    // the latest entry. Updated only once a genuine interactive scroll/fling
-    // settles (isScrollInProgress) - a passive index shift from new content
-    // being inserted above (LazyColumn's key-based anchoring otherwise keeps
-    // whatever was visible in the same visual spot, which would silently
-    // scroll the user away from a brand new top item) never sets this false,
-    // since that isn't a real scroll gesture.
-    var isAnchoredToTop by remember { mutableStateOf(true) }
+    // Whether the user is currently sitting at the bottom, wanting to keep
+    // seeing the latest entry. Updated only once a genuine interactive
+    // scroll/fling settles (isScrollInProgress), not from a passive shift -
+    // appending doesn't move anything already on screen, so there's nothing
+    // to compensate for here the way there was with prepending at the top.
+    var isAnchoredToBottom by remember { mutableStateOf(true) }
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect { inProgress ->
             if (!inProgress) {
-                isAnchoredToTop = listState.firstVisibleItemIndex == 0 &&
-                    listState.firstVisibleItemScrollOffset == 0
+                val layoutInfo = listState.layoutInfo
+                val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                isAnchoredToBottom = lastVisible != null && lastVisible.index == layoutInfo.totalItemsCount - 1
             }
         }
     }
 
-    // New entries render at index 0 (newest first) - jump back there whenever
-    // one arrives while anchored to top, so the latest message actually stays
-    // in view instead of being pushed off-screen by the anchoring above.
-    // A single long-lived effect (keyed on listState, which never changes)
-    // reacting to a snapshotFlow, rather than LaunchedEffect(filtered.size) -
-    // that would restart (cancel + relaunch) its whole coroutine on every
-    // single incoming message, and on a busy broker, each new message could
-    // cancel the previous scroll before it settles, thrashing the main thread
-    // hard enough to trigger an ANR. snapshotFlow naturally conflates rapid
-    // changes down to the latest value instead of queuing every intermediate one.
+    // New entries append at the end - jump there whenever one arrives while
+    // anchored to the bottom. A single long-lived effect (keyed on listState,
+    // which never changes) reacting to a snapshotFlow, rather than
+    // LaunchedEffect(filtered.size) - that would restart (cancel + relaunch)
+    // its whole coroutine on every single incoming message, and on a busy
+    // broker, each new message could cancel the previous scroll before it
+    // settles, thrashing the main thread hard enough to trigger an ANR.
+    // snapshotFlow naturally conflates rapid changes down to the latest value
+    // instead of queuing every intermediate one.
     var lastMessageLogSize by remember { mutableIntStateOf(messageLogState.value.size) }
     LaunchedEffect(listState) {
         snapshotFlow { messageLogState.value.size }.collect { size ->
             if (size != lastMessageLogSize) {
                 lastMessageLogSize = size
-                if (isAnchoredToTop) {
-                    listState.scrollToItem(0)
+                if (isAnchoredToBottom && filtered.isNotEmpty()) {
+                    listState.scrollToItem(filtered.size - 1)
                 }
             }
         }
@@ -151,18 +161,19 @@ fun TerminalScreen() {
             )
         },
         floatingActionButton = {
-            AnimatedVisibility(visible = showJumpToTop, enter = fadeIn(), exit = fadeOut()) {
+            AnimatedVisibility(visible = showJumpToBottom, enter = fadeIn(), exit = fadeOut()) {
                 FloatingActionButton(onClick = {
                     // Set synchronously rather than waiting for the async
-                    // scroll-settle detection below to catch up - if new
-                    // messages keep arriving while the animation is still in
-                    // flight, the size-change effect needs to already see
-                    // "anchored" as true, or it'll skip re-scrolling and the
-                    // view ends up stuck away from the true top.
-                    isAnchoredToTop = true
-                    coroutineScope.launch { listState.scrollToItem(0) }
+                    // scroll-settle detection above to catch up - if new
+                    // messages keep arriving right as this is tapped, the
+                    // size-change effect needs to already see "anchored" as
+                    // true, or it'll skip re-scrolling.
+                    isAnchoredToBottom = true
+                    if (filtered.isNotEmpty()) {
+                        coroutineScope.launch { listState.scrollToItem(filtered.size - 1) }
+                    }
                 }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Jump to newest")
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Jump to newest")
                 }
             }
         },
@@ -211,7 +222,7 @@ fun TerminalScreen() {
             Spacer(Modifier.height(8.dp))
 
             Text(
-                "${filtered.size} of ${messageLog.size} messages (newest first, last $MAX_LOGGED_MESSAGES_LABEL kept)",
+                "${filtered.size} of ${messageLog.size} messages (oldest first, last $MAX_LOGGED_MESSAGES_LABEL kept)",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
