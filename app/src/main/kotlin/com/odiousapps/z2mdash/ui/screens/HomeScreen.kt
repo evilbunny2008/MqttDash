@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.AppConfig
@@ -77,7 +78,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun HomeScreen(navController: NavController) {
-    val app = LocalContext.current.applicationContext as Z2mDashApplication
+    val context = LocalContext.current
+    val app = context.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
     val payloads by app.connectionManager.latestPayloads.collectAsState()
     val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()
@@ -160,8 +162,18 @@ fun HomeScreen(navController: NavController) {
             items(config.pendingAutoConfigDevices, key = { "${it.brokerId}|${it.appConfigTopic}" }) { pending ->
                 PendingDeviceBanner(
                     pending = pending,
-                    onAdd = { addPendingDevice(app, config, payloads, pending) },
-                    onIgnore = { app.configRepository.ignoreAppConfigTopic(pending.brokerId, pending.appConfigTopic) }
+                    onAdd = {
+                        addPendingDevice(app, config, payloads, pending)
+                        // Both actions mean the user has already handled this
+                        // prompt via the in-app banner, so the matching system
+                        // notification (posted with the same deviceName-based
+                        // ID) shouldn't keep lingering in the shade too.
+                        NotificationManagerCompat.from(context).cancel(pending.deviceName.hashCode())
+                    },
+                    onIgnore = {
+                        app.configRepository.ignoreAppConfigTopic(pending.brokerId, pending.appConfigTopic)
+                        NotificationManagerCompat.from(context).cancel(pending.deviceName.hashCode())
+                    }
                 )
             }
             items(config.groups, key = { it.id }) { group ->
