@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.AppConfig
@@ -79,7 +80,7 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) {
     val context = LocalContext.current
     val app = context.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
@@ -90,10 +91,19 @@ fun HomeScreen(navController: NavController) {
     // to it here lets the just-added panel's group scroll into view, since
     // it's easy for a new cluster to land somewhere already off-screen,
     // especially in a group that already has several clusters.
-    val scrollToGroupId by navController.currentBackStackEntry
-        ?.savedStateHandle
-        ?.getStateFlow<String?>("scrollToGroupId", null)
-        ?.collectAsState() ?: remember { mutableStateOf(null) }
+    //
+    // Uses this screen's own NavBackStackEntry (passed in from the nav graph)
+    // rather than navController.currentBackStackEntry - that property can be
+    // null depending on navigation timing, and calling collectAsState()
+    // conditionally through a nullable chain violates Compose's rule that
+    // composable calls must happen unconditionally, in the same position,
+    // every recomposition. Since this screen recomposes frequently (on every
+    // incoming MQTT payload), that mismatch was a real, live bug, not just a
+    // theoretical one - backStackEntry.savedStateHandle is always non-null,
+    // so collectAsState() below can be called safely and consistently.
+    val scrollToGroupId by backStackEntry.savedStateHandle
+        .getStateFlow<String?>("scrollToGroupId", null)
+        .collectAsState()
     LaunchedEffect(scrollToGroupId) {
         val targetGroupId = scrollToGroupId ?: return@LaunchedEffect
         val groupIndex = config.groups.indexOfFirst { it.id == targetGroupId }
@@ -103,7 +113,7 @@ fun HomeScreen(navController: NavController) {
             // are currently showing.
             listState.requestScrollToItem(config.pendingAutoConfigDevices.size + groupIndex)
         }
-        navController.currentBackStackEntry?.savedStateHandle?.set<String?>("scrollToGroupId", null)
+        backStackEntry.savedStateHandle.set<String?>("scrollToGroupId", null)
     }
     val payloads by app.connectionManager.latestPayloads.collectAsState()
     val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()

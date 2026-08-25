@@ -72,7 +72,7 @@ fun AppNavHost() {
             startDestination = "home",
             modifier = Modifier.padding(padding)
         ) {
-            composable("home") { HomeScreen(navController) }
+            composable("home") { backStackEntry -> HomeScreen(navController, backStackEntry) }
             composable("welcome") { WelcomeScreen(navController) }
             composable("terminal") { TerminalScreen() }
             composable("settings") { SettingsScreen(navController) }
