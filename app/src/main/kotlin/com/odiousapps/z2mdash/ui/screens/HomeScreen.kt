@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -82,6 +83,28 @@ fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
     val app = context.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
+
+    val listState = rememberLazyListState()
+    // AddPanelScreen sets this on save (for a newly-added panel, not an edit)
+    // via the standard Navigation Compose result-passing pattern - reacting
+    // to it here lets the just-added panel's group scroll into view, since
+    // it's easy for a new cluster to land somewhere already off-screen,
+    // especially in a group that already has several clusters.
+    val scrollToGroupId by navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow<String?>("scrollToGroupId", null)
+        ?.collectAsState() ?: remember { mutableStateOf(null) }
+    LaunchedEffect(scrollToGroupId) {
+        val targetGroupId = scrollToGroupId ?: return@LaunchedEffect
+        val groupIndex = config.groups.indexOfFirst { it.id == targetGroupId }
+        if (groupIndex >= 0) {
+            // Pending-device banners occupy LazyColumn items ahead of the
+            // groups, so the target index needs to account for however many
+            // are currently showing.
+            listState.requestScrollToItem(config.pendingAutoConfigDevices.size + groupIndex)
+        }
+        navController.currentBackStackEntry?.savedStateHandle?.set<String?>("scrollToGroupId", null)
+    }
     val payloads by app.connectionManager.latestPayloads.collectAsState()
     val timestamps by app.connectionManager.latestPayloadTimestamps.collectAsState()
 
@@ -153,6 +176,7 @@ fun HomeScreen(navController: NavController) {
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.padding(padding).fillMaxSize(),
             // Extra bottom padding so the last group's trailing icons (add
             // panel, delete group) can scroll clear of the FAB rather than
