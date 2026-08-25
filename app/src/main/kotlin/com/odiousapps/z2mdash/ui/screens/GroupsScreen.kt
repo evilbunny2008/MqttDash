@@ -62,12 +62,24 @@ fun GroupsScreen(navController: NavController) {
 
     // Drag-to-reorder state, shared across every row. Only one row can be
     // dragged at a time, so a single set of variables (rather than per-row
-    // state) is enough. rowHeightPx is measured once from whichever row
-    // happens to report its size first - rows are visually uniform, so this
-    // is an accurate-enough basis for "how many rows has this drag crossed".
+    // state) is enough. rowHeightPx is measured from the full row (not just
+    // the drag handle), since the math below is directly proportional to it.
     var draggedGroupId by remember { mutableStateOf<String?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var rowHeightPx by remember { mutableFloatStateOf(0f) }
+
+    // Purely local ordering used only while a drag is active - reordering
+    // this is instant/synchronous, unlike calling into configRepository
+    // (which round-trips through a StateFlow, taking at least one extra
+    // frame to reach this screen's layout). Committing to the real config on
+    // every row crossing meant this screen's own offset compensation and the
+    // actual reorder landing in the layout never quite lined up in the same
+    // frame, causing a visible jump each time a row was crossed. Now the
+    // real config is only touched once, when the drag ends.
+    var dragVisualOrder by remember { mutableStateOf<List<String>?>(null) }
+    val displayedGroups = dragVisualOrder
+        ?.mapNotNull { id -> config.groups.find { it.id == id } }
+        ?: config.groups
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -89,8 +101,8 @@ fun GroupsScreen(navController: NavController) {
             )
         }
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
-            items(config.groups, key = { it.id }) { group ->
-                val index = config.groups.indexOfFirst { it.id == group.id }
+            items(displayedGroups, key = { it.id }) { group ->
+                val index = displayedGroups.indexOfFirst { it.id == group.id }
                 val isDragging = draggedGroupId == group.id
                 ListItem(
                     headlineContent = { Text(group.name) },
@@ -103,23 +115,40 @@ fun GroupsScreen(navController: NavController) {
                                         onDragStart = {
                                             draggedGroupId = group.id
                                             dragOffsetY = 0f
+                                            dragVisualOrder = config.groups.map { it.id }
                                         },
                                         onDragEnd = {
+                                            val finalOrder = dragVisualOrder
+                                            val finalIndex = finalOrder?.indexOf(group.id) ?: -1
+                                            if (finalIndex >= 0) {
+                                                app.configRepository.moveGroupToIndex(group.id, finalIndex + 1)
+                                            }
                                             draggedGroupId = null
                                             dragOffsetY = 0f
+                                            dragVisualOrder = null
                                         },
                                         onDragCancel = {
                                             draggedGroupId = null
                                             dragOffsetY = 0f
+                                            dragVisualOrder = null
                                         },
                                         onDrag = { change, dragAmount ->
                                             change.consume()
                                             dragOffsetY += dragAmount.y
                                             val height = rowHeightPx
-                                            if (height > 0f) {
+                                            val currentOrder = dragVisualOrder
+                                            if (height > 0f && currentOrder != null) {
                                                 val indexDelta = (dragOffsetY / height).roundToInt()
                                                 if (indexDelta != 0) {
-                                                    app.configRepository.moveGroup(group.id, indexDelta)
+                                                    val currentIndex = currentOrder.indexOf(group.id)
+                                                    val targetIndex = (currentIndex + indexDelta)
+                                                        .coerceIn(0, currentOrder.lastIndex)
+                                                    if (targetIndex != currentIndex) {
+                                                        val reordered = currentOrder.toMutableList()
+                                                        reordered.removeAt(currentIndex)
+                                                        reordered.add(targetIndex, group.id)
+                                                        dragVisualOrder = reordered
+                                                    }
                                                     dragOffsetY -= indexDelta * height
                                                 }
                                             }
@@ -138,7 +167,7 @@ fun GroupsScreen(navController: NavController) {
                             }
                             IconButton(
                                 onClick = { app.configRepository.moveGroup(group.id, 1) },
-                                enabled = index < config.groups.lastIndex
+                                enabled = index < displayedGroups.lastIndex
                             ) {
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
                             }
