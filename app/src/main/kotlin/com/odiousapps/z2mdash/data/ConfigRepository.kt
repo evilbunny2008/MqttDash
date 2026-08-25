@@ -133,6 +133,7 @@ class ConfigRepository(private val context: Context) {
                 when (panel) {
                     is Panel.Sensor -> panel.copy(displayOrder = newOrder)
                     is Panel.Toggle -> panel.copy(displayOrder = newOrder)
+                    is Panel.Button -> panel.copy(displayOrder = newOrder)
                 }
             })
         }

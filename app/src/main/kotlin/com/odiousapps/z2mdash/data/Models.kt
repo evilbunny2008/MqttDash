@@ -89,6 +89,22 @@ sealed class Panel {
         override val clusterName: String = "",
         override val displayOrder: Int = Int.MAX_VALUE
     ) : Panel()
+
+    // A momentary action with no on/off state to reflect - e.g. "Stop" on a
+    // blind motor, interrupting whatever it's currently doing. Unlike Toggle,
+    // there's nothing to display as checked/unchecked; tapping it just sends
+    // payload to commandTopic every time.
+    @Serializable
+    data class Button(
+        override val id: String,
+        override val label: String,
+        override val brokerId: String,
+        val commandTopic: String,
+        val payload: String = "",
+        val icon: TileIcon = TileIcon.POWER,
+        override val clusterName: String = "",
+        override val displayOrder: Int = Int.MAX_VALUE
+    ) : Panel()
 }
 
 @Serializable

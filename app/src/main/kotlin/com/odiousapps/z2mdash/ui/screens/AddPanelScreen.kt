@@ -58,7 +58,15 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     }
     val isEditing = existing != null
 
-    var panelType by remember(existing) { mutableStateOf(if (existing is Panel.Toggle) "Toggle" else "Sensor") }
+    var panelType by remember(existing) {
+        mutableStateOf(
+            when (existing) {
+                is Panel.Toggle -> "Toggle"
+                is Panel.Button -> "Button"
+                else -> "Sensor"
+            }
+        )
+    }
     var selectedBrokerId by remember(existing) {
         mutableStateOf(existing?.brokerId ?: config.brokers.firstOrNull()?.id ?: "")
     }
@@ -72,6 +80,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
             when (existing) {
                 is Panel.Sensor -> existing.icon
                 is Panel.Toggle -> existing.icon
+                is Panel.Button -> existing.icon
                 else -> TileIcon.GAUGE
             }
         )
@@ -92,13 +101,18 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     }
 
     // Toggle fields
-    var commandTopic by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.commandTopic ?: "") }
+    var commandTopic by remember(existing) {
+        mutableStateOf((existing as? Panel.Toggle)?.commandTopic ?: (existing as? Panel.Button)?.commandTopic ?: "")
+    }
     var onPayload by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.onPayload ?: "ON") }
     var offPayload by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.offPayload ?: "OFF") }
     var stateTopic by remember(existing) { mutableStateOf((existing as? Panel.Toggle)?.stateTopic ?: "") }
     var stateJsonPath by remember(existing) {
         mutableStateOf((existing as? Panel.Toggle)?.stateJsonPath ?: "")
     }
+
+    // Button field
+    var buttonPayload by remember(existing) { mutableStateOf((existing as? Panel.Button)?.payload ?: "") }
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -118,8 +132,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                 Button(
                     onClick = {
                         val displayOrderValue = displayOrderText.toIntOrNull() ?: Int.MAX_VALUE
-                        val panel: Panel = if (panelType == "Sensor") {
-                            Panel.Sensor(
+                        val panel: Panel = when (panelType) {
+                            "Sensor" -> Panel.Sensor(
                                 id = existing?.id ?: UUID.randomUUID().toString(),
                                 label = label.ifBlank { "Sensor" },
                                 brokerId = selectedBrokerId,
@@ -133,8 +147,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 clusterName = clusterName,
                                 displayOrder = displayOrderValue
                             )
-                        } else {
-                            Panel.Toggle(
+                            "Toggle" -> Panel.Toggle(
                                 id = existing?.id ?: UUID.randomUUID().toString(),
                                 label = label.ifBlank { "Toggle" },
                                 brokerId = selectedBrokerId,
@@ -143,6 +156,16 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 offPayload = offPayload,
                                 stateTopic = stateTopic,
                                 stateJsonPath = stateJsonPath,
+                                icon = icon,
+                                clusterName = clusterName,
+                                displayOrder = displayOrderValue
+                            )
+                            else -> Panel.Button(
+                                id = existing?.id ?: UUID.randomUUID().toString(),
+                                label = label.ifBlank { "Button" },
+                                brokerId = selectedBrokerId,
+                                commandTopic = commandTopic,
+                                payload = buttonPayload,
                                 icon = icon,
                                 clusterName = clusterName,
                                 displayOrder = displayOrderValue
@@ -170,13 +193,18 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                     SegmentedButton(
                         selected = panelType == "Sensor",
                         onClick = { if (!isEditing) panelType = "Sensor" },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2)
+                        shape = SegmentedButtonDefaults.itemShape(0, 3)
                     ) { Text("Sensor") }
                     SegmentedButton(
                         selected = panelType == "Toggle",
                         onClick = { if (!isEditing) panelType = "Toggle" },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2)
+                        shape = SegmentedButtonDefaults.itemShape(1, 3)
                     ) { Text("Toggle") }
+                    SegmentedButton(
+                        selected = panelType == "Button",
+                        onClick = { if (!isEditing) panelType = "Button" },
+                        shape = SegmentedButtonDefaults.itemShape(2, 3)
+                    ) { Text("Button") }
                 }
                 if (isEditing) {
                     Text(
@@ -311,7 +339,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         "When set, this tile flashes red below min, green within range, and blue above max.",
                         style = MaterialTheme.typography.bodySmall
                     )
-                } else {
+                } else if (panelType == "Toggle") {
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
                         value = commandTopic,
@@ -351,6 +379,28 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         label = { Text("State JSON field (optional)") },
                         placeholder = { Text("e.g. state") },
                         modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    // Button
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = commandTopic,
+                        onValueChange = { commandTopic = it },
+                        label = { Text("Command topic") },
+                        placeholder = { Text("e.g. zigbee2mqtt/Blind_01/set") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = buttonPayload,
+                        onValueChange = { buttonPayload = it },
+                        label = { Text("Payload") },
+                        placeholder = { Text("e.g. {\"state\": \"STOP\"} or a bare value like STOP") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Sent every time this button is tapped - there's no on/off state to track.",
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 

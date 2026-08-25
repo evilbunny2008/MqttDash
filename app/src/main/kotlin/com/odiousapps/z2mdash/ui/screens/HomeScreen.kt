@@ -68,6 +68,7 @@ import com.odiousapps.z2mdash.data.Panel
 import com.odiousapps.z2mdash.data.PanelGroup
 import com.odiousapps.z2mdash.data.PendingAutoConfigDevice
 import com.odiousapps.z2mdash.data.SensorDiscovery
+import com.odiousapps.z2mdash.ui.components.ButtonTile
 import com.odiousapps.z2mdash.ui.components.SensorAlert
 import com.odiousapps.z2mdash.ui.components.SensorTile
 import com.odiousapps.z2mdash.ui.components.ToggleTile
@@ -362,6 +363,7 @@ private fun pushOrderUpdateIfAutoConfigured(
         val key = when (panel) {
             is Panel.Sensor -> panel.jsonPath
             is Panel.Toggle -> panel.label
+            is Panel.Button -> panel.label
         }
         key to index
     }.toMap()
@@ -389,6 +391,9 @@ private fun ClusterCard(
         fun topicFor(panel: Panel): String? = when (panel) {
             is Panel.Sensor -> panel.topic
             is Panel.Toggle -> panel.stateTopic.takeIf { it.isNotBlank() }
+            // No meaningful state to track age from - a momentary command has
+            // nothing to have "last reported" a value for.
+            is Panel.Button -> null
         }
 
         // Prefer the device's own reported time (Zigbee2MQTT's "last_seen" field)
@@ -626,6 +631,16 @@ private fun PanelTile(
                         if (isOn) panel.offPayload else panel.onPayload
                     )
                 },
+                onEdit = { navController.navigate("group/$groupId/panel/${panel.id}") }
+            )
+        }
+
+        is Panel.Button -> {
+            ButtonTile(
+                modifier = modifier,
+                icon = panel.icon,
+                label = panel.label,
+                onPress = { app.connectionManager.publish(panel.brokerId, panel.commandTopic, panel.payload) },
                 onEdit = { navController.navigate("group/$groupId/panel/${panel.id}") }
             )
         }

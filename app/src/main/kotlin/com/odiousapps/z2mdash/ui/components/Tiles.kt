@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.SignalWifi4Bar
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -167,8 +168,44 @@ fun ToggleTile(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit)
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+/** A momentary action tile - tapping the button sends its payload immediately; there's no on/off state to reflect, unlike ToggleTile. */
+@Composable
+fun ButtonTile(
+    modifier: Modifier = Modifier,
+    icon: TileIcon,
+    label: String,
+    onPress: () -> Unit,
+    onEdit: () -> Unit = {}
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 120.dp),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth().fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Same separation as ToggleTile: the icon is the edit affordance,
+            // the button itself is the actual action - tapping the button is
+            // the whole point of this tile, so it should be the dominant tap
+            // target, not competing with a whole-card click for edit.
+            Icon(
+                iconFor(icon),
+                contentDescription = null,
+                modifier = Modifier.clickable(onClick = onEdit)
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = onPress) {
+                Text(label, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }

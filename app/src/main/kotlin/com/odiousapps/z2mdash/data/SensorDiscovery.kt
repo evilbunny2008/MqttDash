@@ -87,7 +87,13 @@ object SensorDiscovery {
         // to the device's overall group_order, then declaration order, if unset -
         // sensor panels are otherwise always built before controls regardless of
         // array position, so this is the only way to interleave them.
-        val order: Int? = null
+        val order: Int? = null,
+        // A single-press button with no on/off state - set when the config
+        // omits "off_payload" entirely (as opposed to it defaulting to "OFF"
+        // when unspecified but everything else about the control looks like a
+        // regular toggle). e.g. a blind motor's STOP command. Built as a
+        // Panel.Button rather than a Panel.Toggle when set.
+        val momentary: Boolean = false
     )
 
     // Topics matching these patterns are structural, not sensor data - skip them
@@ -200,6 +206,7 @@ object SensorDiscovery {
         // ({"state":"OPEN"}) - objects get serialized to their compact string
         // form, since that's what actually gets published as the MQTT payload.
         val onPayload = jsonValueToPayloadString(obj["on_payload"]) ?: "ON"
+        val momentary = obj["off_payload"] == null
         val offPayload = jsonValueToPayloadString(obj["off_payload"]) ?: "OFF"
         val stateTopic = (obj["state_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
         val stateField = (obj["state_field"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
@@ -210,7 +217,7 @@ object SensorDiscovery {
         val commandTopic = (obj["command_topic"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
             ?: stateTopic?.let { "$it/set" }
             ?: return null
-        return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField, cluster, order)
+        return ControlConfig(label, commandTopic, onPayload, offPayload, stateTopic, stateField, cluster, order, momentary)
     }
 
     /** A JSON string primitive is used as-is; any other element (object/array/etc.) is re-serialized to its compact form. */
@@ -305,18 +312,30 @@ object SensorDiscovery {
         }
 
         val controlPanels: List<Panel> = deviceConfig.controls.map { control ->
-            Panel.Toggle(
-                id = java.util.UUID.randomUUID().toString(),
-                label = control.label,
-                brokerId = brokerId,
-                commandTopic = control.commandTopic,
-                onPayload = control.onPayload,
-                offPayload = control.offPayload,
-                stateTopic = control.stateTopic ?: "",
-                stateJsonPath = control.stateField ?: "",
-                clusterName = control.cluster?.takeIf { it.isNotBlank() } ?: deviceClusterName,
-                displayOrder = control.order ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
-            )
+            if (control.momentary) {
+                Panel.Button(
+                    id = java.util.UUID.randomUUID().toString(),
+                    label = control.label,
+                    brokerId = brokerId,
+                    commandTopic = control.commandTopic,
+                    payload = control.onPayload,
+                    clusterName = control.cluster?.takeIf { it.isNotBlank() } ?: deviceClusterName,
+                    displayOrder = control.order ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
+                )
+            } else {
+                Panel.Toggle(
+                    id = java.util.UUID.randomUUID().toString(),
+                    label = control.label,
+                    brokerId = brokerId,
+                    commandTopic = control.commandTopic,
+                    onPayload = control.onPayload,
+                    offPayload = control.offPayload,
+                    stateTopic = control.stateTopic ?: "",
+                    stateJsonPath = control.stateField ?: "",
+                    clusterName = control.cluster?.takeIf { it.isNotBlank() } ?: deviceClusterName,
+                    displayOrder = control.order ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
+                )
+            }
         }
 
         return sensorPanels + controlPanels

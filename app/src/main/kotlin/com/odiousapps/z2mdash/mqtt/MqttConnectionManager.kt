@@ -96,6 +96,9 @@ class MqttConnectionManager(
                 is Panel.Toggle -> if (panel.stateTopic.isNotBlank()) {
                     connections[panel.brokerId]?.subscribe(panel.stateTopic)
                 }
+                // Momentary buttons only ever publish (on press) - there's no
+                // feedback topic to subscribe to.
+                is Panel.Button -> {}
             }
         }
 
