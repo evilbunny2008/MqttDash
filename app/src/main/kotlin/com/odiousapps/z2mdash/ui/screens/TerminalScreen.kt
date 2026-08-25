@@ -4,6 +4,7 @@ import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,14 +38,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -58,9 +56,6 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private const val ALL_BROKERS = "__all__"
 private const val MAX_LOGGED_MESSAGES_LABEL = "300"
-
-/** Everything the auto-scroll effect needs to decide whether to jump, computed fresh on every check - see the LaunchedEffect in TerminalScreen. */
-private data class ScrollCheck(val rawSize: Int, val request: Int, val filteredSize: Int, val isAtBottom: Boolean)
 
 /** Shared by the rendered list and the auto-scroll effect, so they can never disagree on what's currently showing. */
 private fun filterMessages(log: List<LoggedMessage>, filterText: String, brokerId: String): List<LoggedMessage> =
@@ -76,11 +71,7 @@ private fun filterMessages(log: List<LoggedMessage>, filterText: String, brokerI
 fun TerminalScreen() {
     val app = LocalContext.current.applicationContext as Z2mDashApplication
     val config by app.configRepository.config.collectAsState()
-    // Kept as the raw State object (not the `by`-delegated value) specifically
-    // so snapshotFlow below can observe it directly - see the LaunchedEffect
-    // further down for why.
-    val messageLogState = app.connectionManager.messageLog.collectAsState()
-    val messageLog = messageLogState.value
+    val messageLog by app.connectionManager.messageLog.collectAsState()
 
     var filterText by remember { mutableStateOf("") }
     var selectedBrokerId by remember { mutableStateOf(ALL_BROKERS) }
@@ -106,58 +97,29 @@ fun TerminalScreen() {
     }
 
     val listState = rememberLazyListState()
-    // Only recomposes when this actually flips true/false, not on every pixel
-    // scrolled - the button just needs to know "am I away from the bottom".
-    val showJumpToBottom by remember {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible == null || lastVisible.index != layoutInfo.totalItemsCount - 1
+
+    // True only once the user genuinely drags the list themselves - not from
+    // any of this screen's own programmatic scrolling. Used both to decide
+    // whether to keep auto-following new messages, and to show the jump button.
+    var userScrolledAway by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) {
+                userScrolledAway = true
+            }
         }
     }
 
-    // New entries append at the end - jump there whenever one arrives while
-    // the user is genuinely at the bottom, OR when they explicitly tap the
-    // jump button below. A single long-lived effect (keyed on listState,
-    // which never changes) reacting to a merged snapshotFlow, rather than
-    // LaunchedEffect(filtered.size) - that would restart (cancel + relaunch)
-    // its whole coroutine on every single incoming message, and on a busy
-    // broker, each new message could cancel the previous scroll before it
-    // settles, thrashing the main thread hard enough to trigger an ANR.
-    // Critically, this is also the *only* place in the whole screen that
-    // ever calls scrollToItem on this listState - the FAB below just bumps
-    // a counter rather than launching its own competing coroutine, so two
-    // scroll calls can never race for the same underlying scroll mutex.
-    //
-    // Everything this needs - filtered size, and whether the user is
-    // currently at the bottom - is recomputed fresh *inside* the snapshotFlow
-    // lambda by reading listState/messageLogState/filterText/selectedBrokerId
-    // directly, rather than closing over any composable-scope val like
-    // `filtered` or `showJumpToBottom`. This LaunchedEffect only launches
-    // once, so a captured closure variable would stay frozen at whatever it
-    // was during the very first composition, silently going stale forever
-    // instead of tracking the list as it actually changes.
-    var lastMessageLogSize by remember { mutableIntStateOf(-1) }
-    var jumpToBottomRequest by remember { mutableIntStateOf(0) }
-    LaunchedEffect(listState) {
-        var lastHandledRequest = jumpToBottomRequest
-        snapshotFlow {
-            val currentFilteredSize = filterMessages(messageLogState.value, filterText, selectedBrokerId).size
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            val isAtBottom = lastVisible != null && lastVisible.index == layoutInfo.totalItemsCount - 1
-            ScrollCheck(messageLogState.value.size, jumpToBottomRequest, currentFilteredSize, isAtBottom)
-        }.collect { check ->
-            val newMessageArrived = check.rawSize != lastMessageLogSize
-            val manualRequest = check.request != lastHandledRequest
-            val isFirstLoad = lastMessageLogSize == -1
-            lastMessageLogSize = check.rawSize
-            lastHandledRequest = check.request
-            if (check.filteredSize > 0 &&
-                (manualRequest || isFirstLoad || (newMessageArrived && check.isAtBottom))
-            ) {
-                listState.scrollToItem(check.filteredSize - 1)
-            }
+    // New entries append at the end - jump there whenever one arrives and the
+    // user hasn't scrolled away. Uses requestScrollToItem rather than the
+    // suspend scrollToItem: it's synchronous (no coroutine needed at all, so
+    // there's nothing to race or cancel between this and the FAB's manual
+    // jump below) and explicitly resolves "at the next remeasure," which
+    // correctly handles a just-arrived item that hasn't been laid out yet
+    // instead of racing against it.
+    LaunchedEffect(filtered) {
+        if (!userScrolledAway && filtered.isNotEmpty()) {
+            listState.requestScrollToItem(filtered.size - 1)
         }
     }
 
@@ -173,8 +135,13 @@ fun TerminalScreen() {
             )
         },
         floatingActionButton = {
-            AnimatedVisibility(visible = showJumpToBottom, enter = fadeIn(), exit = fadeOut()) {
-                FloatingActionButton(onClick = { jumpToBottomRequest++ }) {
+            AnimatedVisibility(visible = userScrolledAway, enter = fadeIn(), exit = fadeOut()) {
+                FloatingActionButton(onClick = {
+                    userScrolledAway = false
+                    if (filtered.isNotEmpty()) {
+                        listState.requestScrollToItem(filtered.size - 1)
+                    }
+                }) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Jump to newest")
                 }
             }
