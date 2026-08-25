@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -44,9 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.data.PanelGroup
@@ -63,20 +62,18 @@ fun GroupsScreen(navController: NavController) {
 
     // Drag-to-reorder state, shared across every row. Only one row can be
     // dragged at a time, so a single set of variables (rather than per-row
-    // state) is enough. rowHeightPx is measured from the full row (not just
-    // the drag handle), since the math below is directly proportional to it.
+    // state) is enough.
     //
-    // Deliberately never reorders config.groups itself mid-drag (unlike an
-    // earlier version of this screen, which did). LazyListState internally
-    // tracks the key of the first visible item to preserve scroll position
-    // across recompositions - reordering the real keyed list mid-gesture
-    // made it think it needed to "chase" the moved item's new position,
-    // triggering visible auto-scrolling that had nothing to do with an
-    // actual scroll gesture. Instead, the real list stays untouched for the
-    // whole drag: only the dragged row's own offset changes continuously,
-    // and other rows between its start and current position get a purely
-    // visual "shift out of the way" offset. The real config is only touched
-    // once, with a single commit, when the drag ends.
+    // Deliberately doesn't move/offset any row during the drag at all -
+    // earlier versions tried reordering the real list mid-drag (which made
+    // LazyListState's internal scroll-anchor tracking "chase" the moved
+    // item, causing unwanted auto-scrolling) and then tried purely visual
+    // per-row offsets (which fought the same anchor-preservation machinery
+    // in subtler ways). Instead, every row stays exactly where it is for
+    // the whole gesture, the dragged row just gets a highlight, and a
+    // colored insertion line shows where it would land. Nothing about the
+    // layout changes until the drag ends, at which point a single clean
+    // reorder is committed and the list updates normally.
     var draggedGroupId by remember { mutableStateOf<String?>(null) }
     var draggedFromIndex by remember { mutableIntStateOf(-1) }
     var draggedToIndex by remember { mutableIntStateOf(-1) }
@@ -106,22 +103,9 @@ fun GroupsScreen(navController: NavController) {
             items(config.groups, key = { it.id }) { group ->
                 val naturalIndex = config.groups.indexOfFirst { it.id == group.id }
                 val isDragging = draggedGroupId == group.id
-
-                // Purely visual "make room" offset for every OTHER row that
-                // currently sits between the dragged item's start and
-                // current target position - the real list order behind them
-                // hasn't actually changed yet.
-                val shiftOffsetPx = if (!isDragging && draggedGroupId != null && rowHeightPx > 0f) {
-                    when {
-                        draggedFromIndex < draggedToIndex && naturalIndex in (draggedFromIndex + 1)..draggedToIndex ->
-                            -rowHeightPx
-                        draggedFromIndex > draggedToIndex && naturalIndex in draggedToIndex until draggedFromIndex ->
-                            rowHeightPx
-                        else -> 0f
-                    }
-                } else {
-                    0f
-                }
+                val isInsertionTarget = draggedGroupId != null &&
+                    draggedGroupId != group.id &&
+                    naturalIndex == draggedToIndex
 
                 ListItem(
                     headlineContent = { Text(group.name) },
@@ -157,12 +141,6 @@ fun GroupsScreen(navController: NavController) {
                                             dragOffsetY += dragAmount.y
                                             val height = rowHeightPx
                                             if (height > 0f) {
-                                                // Recomputed fresh from the total drag distance every
-                                                // time, not incrementally adjusted - since the real list
-                                                // never reorders mid-drag, there's nothing to compensate
-                                                // for, and no risk of the offset getting stuck resetting
-                                                // itself at the top/bottom edges the way an incremental
-                                                // approach did.
                                                 draggedToIndex = (draggedFromIndex + (dragOffsetY / height).roundToInt())
                                                     .coerceIn(0, config.groups.lastIndex)
                                             }
@@ -187,11 +165,15 @@ fun GroupsScreen(navController: NavController) {
                             }
                         }
                     },
+                    colors = if (isDragging) {
+                        ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    } else {
+                        ListItemDefaults.colors()
+                    },
                     modifier = Modifier
                         // Measures the *whole row*, not just the drag handle -
                         // the handle alone is much shorter than the full
-                        // ListItem (headline + supporting text + trailing
-                        // buttons), so using its height as "how tall is one
+                        // ListItem, so using its height as "how tall is one
                         // row" badly undercounted, causing every unit of
                         // actual drag distance to register as crossing
                         // roughly twice as many rows as it really did.
@@ -202,17 +184,17 @@ fun GroupsScreen(navController: NavController) {
                             renamingGroup = group
                             renameText = group.name
                         }
-                        .then(
-                            if (isDragging) {
-                                Modifier.zIndex(1f).offset { IntOffset(0, dragOffsetY.roundToInt()) }
-                            } else if (shiftOffsetPx != 0f) {
-                                Modifier.offset { IntOffset(0, shiftOffsetPx.roundToInt()) }
-                            } else {
-                                Modifier
-                            }
-                        )
                 )
-                HorizontalDivider()
+                if (isInsertionTarget) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                } else {
+                    HorizontalDivider()
+                }
             }
         }
     }
