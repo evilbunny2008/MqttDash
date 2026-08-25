@@ -1,6 +1,9 @@
 package com.odiousapps.z2mdash.ui.screens
 
 import android.text.format.DateUtils
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,14 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,10 +37,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.mqtt.LoggedMessage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.Duration.Companion.milliseconds
@@ -79,6 +88,12 @@ fun TerminalScreen() {
         }
     }
 
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    // Only recomposes when this actually flips true/false, not on every pixel
+    // scrolled - the button just needs to know "am I away from the top".
+    val showJumpToTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -89,6 +104,15 @@ fun TerminalScreen() {
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            AnimatedVisibility(visible = showJumpToTop, enter = fadeIn(), exit = fadeOut()) {
+                FloatingActionButton(onClick = {
+                    coroutineScope.launch { listState.animateScrollToItem(0) }
+                }) {
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Jump to newest")
+                }
+            }
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
@@ -149,7 +173,7 @@ fun TerminalScreen() {
             } else if (filtered.isEmpty()) {
                 Text("No messages match that filter.", style = MaterialTheme.typography.bodySmall)
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                     items(filtered, key = { "${it.timestamp}|${it.topic}|${it.brokerId}" }) { entry ->
                         MessageRow(
                             entry = entry,
