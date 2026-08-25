@@ -43,7 +43,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -53,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import com.odiousapps.z2mdash.Z2mDashApplication
 import com.odiousapps.z2mdash.mqtt.LoggedMessage
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlin.time.Duration.Companion.milliseconds
@@ -101,7 +99,6 @@ fun TerminalScreen() {
     }
 
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
     // Only recomposes when this actually flips true/false, not on every pixel
     // scrolled - the button just needs to know "am I away from the bottom".
     val showJumpToBottom by remember {
@@ -129,22 +126,32 @@ fun TerminalScreen() {
     }
 
     // New entries append at the end - jump there whenever one arrives while
-    // anchored to the bottom. A single long-lived effect (keyed on listState,
-    // which never changes) reacting to a snapshotFlow, rather than
+    // anchored to the bottom, OR when the user explicitly taps the jump
+    // button below. A single long-lived effect (keyed on listState, which
+    // never changes) reacting to a merged snapshotFlow, rather than
     // LaunchedEffect(filtered.size) - that would restart (cancel + relaunch)
     // its whole coroutine on every single incoming message, and on a busy
     // broker, each new message could cancel the previous scroll before it
     // settles, thrashing the main thread hard enough to trigger an ANR.
-    // snapshotFlow naturally conflates rapid changes down to the latest value
-    // instead of queuing every intermediate one.
-    var lastMessageLogSize by remember { mutableIntStateOf(messageLogState.value.size) }
+    // Critically, this is also the *only* place in the whole screen that
+    // ever calls scrollToItem on this listState - the FAB below just bumps
+    // a counter rather than launching its own competing coroutine, so two
+    // scroll calls can never race for the same underlying scroll mutex.
+    // -1 (never a real size) rather than the current size, so the very first
+    // emission below always counts as "a new message arrived" and scrolls to
+    // the bottom on initial load - otherwise, opening the screen would show
+    // the oldest messages first instead of landing on the latest.
+    var lastMessageLogSize by remember { mutableIntStateOf(-1) }
+    var jumpToBottomRequest by remember { mutableIntStateOf(0) }
     LaunchedEffect(listState) {
-        snapshotFlow { messageLogState.value.size }.collect { size ->
-            if (size != lastMessageLogSize) {
-                lastMessageLogSize = size
-                if (isAnchoredToBottom && filtered.isNotEmpty()) {
-                    listState.scrollToItem(filtered.size - 1)
-                }
+        var lastHandledRequest = jumpToBottomRequest
+        snapshotFlow { messageLogState.value.size to jumpToBottomRequest }.collect { (size, request) ->
+            val newMessageArrived = size != lastMessageLogSize
+            val manualRequest = request != lastHandledRequest
+            lastMessageLogSize = size
+            lastHandledRequest = request
+            if (filtered.isNotEmpty() && (manualRequest || (newMessageArrived && isAnchoredToBottom))) {
+                listState.scrollToItem(filtered.size - 1)
             }
         }
     }
@@ -163,15 +170,8 @@ fun TerminalScreen() {
         floatingActionButton = {
             AnimatedVisibility(visible = showJumpToBottom, enter = fadeIn(), exit = fadeOut()) {
                 FloatingActionButton(onClick = {
-                    // Set synchronously rather than waiting for the async
-                    // scroll-settle detection above to catch up - if new
-                    // messages keep arriving right as this is tapped, the
-                    // size-change effect needs to already see "anchored" as
-                    // true, or it'll skip re-scrolling.
                     isAnchoredToBottom = true
-                    if (filtered.isNotEmpty()) {
-                        coroutineScope.launch { listState.scrollToItem(filtered.size - 1) }
-                    }
+                    jumpToBottomRequest++
                 }) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Jump to newest")
                 }
