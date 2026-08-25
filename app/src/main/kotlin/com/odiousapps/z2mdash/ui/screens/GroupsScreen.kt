@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -64,22 +65,23 @@ fun GroupsScreen(navController: NavController) {
     // dragged at a time, so a single set of variables (rather than per-row
     // state) is enough. rowHeightPx is measured from the full row (not just
     // the drag handle), since the math below is directly proportional to it.
+    //
+    // Deliberately never reorders config.groups itself mid-drag (unlike an
+    // earlier version of this screen, which did). LazyListState internally
+    // tracks the key of the first visible item to preserve scroll position
+    // across recompositions - reordering the real keyed list mid-gesture
+    // made it think it needed to "chase" the moved item's new position,
+    // triggering visible auto-scrolling that had nothing to do with an
+    // actual scroll gesture. Instead, the real list stays untouched for the
+    // whole drag: only the dragged row's own offset changes continuously,
+    // and other rows between its start and current position get a purely
+    // visual "shift out of the way" offset. The real config is only touched
+    // once, with a single commit, when the drag ends.
     var draggedGroupId by remember { mutableStateOf<String?>(null) }
+    var draggedFromIndex by remember { mutableIntStateOf(-1) }
+    var draggedToIndex by remember { mutableIntStateOf(-1) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var rowHeightPx by remember { mutableFloatStateOf(0f) }
-
-    // Purely local ordering used only while a drag is active - reordering
-    // this is instant/synchronous, unlike calling into configRepository
-    // (which round-trips through a StateFlow, taking at least one extra
-    // frame to reach this screen's layout). Committing to the real config on
-    // every row crossing meant this screen's own offset compensation and the
-    // actual reorder landing in the layout never quite lined up in the same
-    // frame, causing a visible jump each time a row was crossed. Now the
-    // real config is only touched once, when the drag ends.
-    var dragVisualOrder by remember { mutableStateOf<List<String>?>(null) }
-    val displayedGroups = dragVisualOrder
-        ?.mapNotNull { id -> config.groups.find { it.id == id } }
-        ?: config.groups
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -101,9 +103,26 @@ fun GroupsScreen(navController: NavController) {
             )
         }
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
-            items(displayedGroups, key = { it.id }) { group ->
-                val index = displayedGroups.indexOfFirst { it.id == group.id }
+            items(config.groups, key = { it.id }) { group ->
+                val naturalIndex = config.groups.indexOfFirst { it.id == group.id }
                 val isDragging = draggedGroupId == group.id
+
+                // Purely visual "make room" offset for every OTHER row that
+                // currently sits between the dragged item's start and
+                // current target position - the real list order behind them
+                // hasn't actually changed yet.
+                val shiftOffsetPx = if (!isDragging && draggedGroupId != null && rowHeightPx > 0f) {
+                    when {
+                        draggedFromIndex < draggedToIndex && naturalIndex in (draggedFromIndex + 1)..draggedToIndex ->
+                            -rowHeightPx
+                        draggedFromIndex > draggedToIndex && naturalIndex in draggedToIndex until draggedFromIndex ->
+                            rowHeightPx
+                        else -> 0f
+                    }
+                } else {
+                    0f
+                }
+
                 ListItem(
                     headlineContent = { Text(group.name) },
                     supportingContent = { Text("${group.panels.size} panel${if (group.panels.size == 1) "" else "s"}") },
@@ -114,51 +133,38 @@ fun GroupsScreen(navController: NavController) {
                                     detectDragGestures(
                                         onDragStart = {
                                             draggedGroupId = group.id
+                                            draggedFromIndex = naturalIndex
+                                            draggedToIndex = naturalIndex
                                             dragOffsetY = 0f
-                                            dragVisualOrder = config.groups.map { it.id }
                                         },
                                         onDragEnd = {
-                                            val finalOrder = dragVisualOrder
-                                            val finalIndex = finalOrder?.indexOf(group.id) ?: -1
-                                            if (finalIndex >= 0) {
-                                                app.configRepository.moveGroupToIndex(group.id, finalIndex + 1)
+                                            if (draggedToIndex != draggedFromIndex && draggedToIndex >= 0) {
+                                                app.configRepository.moveGroupToIndex(group.id, draggedToIndex + 1)
                                             }
                                             draggedGroupId = null
+                                            draggedFromIndex = -1
+                                            draggedToIndex = -1
                                             dragOffsetY = 0f
-                                            dragVisualOrder = null
                                         },
                                         onDragCancel = {
                                             draggedGroupId = null
+                                            draggedFromIndex = -1
+                                            draggedToIndex = -1
                                             dragOffsetY = 0f
-                                            dragVisualOrder = null
                                         },
                                         onDrag = { change, dragAmount ->
                                             change.consume()
                                             dragOffsetY += dragAmount.y
                                             val height = rowHeightPx
-                                            val currentOrder = dragVisualOrder
-                                            if (height > 0f && currentOrder != null) {
-                                                val indexDelta = (dragOffsetY / height).roundToInt()
-                                                if (indexDelta != 0) {
-                                                    val currentIndex = currentOrder.indexOf(group.id)
-                                                    val targetIndex = (currentIndex + indexDelta)
-                                                        .coerceIn(0, currentOrder.lastIndex)
-                                                    // The actual, possibly-clamped move - not the raw
-                                                    // requested indexDelta. Dragging past the top/bottom
-                                                    // edge keeps requesting a move that can't happen; only
-                                                    // compensate dragOffsetY for movement that genuinely
-                                                    // occurred, or it resets back toward zero on every
-                                                    // threshold crossing even while pinned at an edge,
-                                                    // which is what was causing the jump/bounce there.
-                                                    val actualDelta = targetIndex - currentIndex
-                                                    if (actualDelta != 0) {
-                                                        val reordered = currentOrder.toMutableList()
-                                                        reordered.removeAt(currentIndex)
-                                                        reordered.add(targetIndex, group.id)
-                                                        dragVisualOrder = reordered
-                                                        dragOffsetY -= actualDelta * height
-                                                    }
-                                                }
+                                            if (height > 0f) {
+                                                // Recomputed fresh from the total drag distance every
+                                                // time, not incrementally adjusted - since the real list
+                                                // never reorders mid-drag, there's nothing to compensate
+                                                // for, and no risk of the offset getting stuck resetting
+                                                // itself at the top/bottom edges the way an incremental
+                                                // approach did.
+                                                draggedToIndex = (draggedFromIndex + (dragOffsetY / height).roundToInt())
+                                                    .coerceIn(0, config.groups.lastIndex)
                                             }
                                         }
                                     )
@@ -169,13 +175,13 @@ fun GroupsScreen(navController: NavController) {
                         Row {
                             IconButton(
                                 onClick = { app.configRepository.moveGroup(group.id, -1) },
-                                enabled = index > 0
+                                enabled = naturalIndex > 0
                             ) {
                                 Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
                             }
                             IconButton(
                                 onClick = { app.configRepository.moveGroup(group.id, 1) },
-                                enabled = index < displayedGroups.lastIndex
+                                enabled = naturalIndex < config.groups.lastIndex
                             ) {
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
                             }
@@ -199,6 +205,8 @@ fun GroupsScreen(navController: NavController) {
                         .then(
                             if (isDragging) {
                                 Modifier.zIndex(1f).offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                            } else if (shiftOffsetPx != 0f) {
+                                Modifier.offset { IntOffset(0, shiftOffsetPx.roundToInt()) }
                             } else {
                                 Modifier
                             }
