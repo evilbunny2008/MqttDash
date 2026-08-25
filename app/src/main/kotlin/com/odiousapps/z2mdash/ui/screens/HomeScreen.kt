@@ -582,11 +582,22 @@ private fun PanelTile(
     when (panel) {
         is Panel.Sensor -> {
             val raw = payloads["${panel.brokerId}|${panel.topic}"]
-            val value = raw?.let { JsonPath.extract(it, panel.jsonPath) } ?: "--"
+            val extracted = raw?.let { JsonPath.extract(it, panel.jsonPath) }
+            // Only reformat genuinely numeric values - a non-numeric extracted
+            // value (e.g. a text state like "online") passes through as-is,
+            // since rounding only makes sense for actual measurements.
+            val value = extracted?.let { text ->
+                text.toDoubleOrNull()?.let { num -> "%.${panel.decimals}f".format(num) } ?: text
+            } ?: "--"
             val alert = if (panel.idealRangeTopic.isBlank()) {
                 SensorAlert.NONE
             } else {
-                val numericValue = value.toDoubleOrNull()
+                // Deliberately re-parses the original extracted text, not the
+                // now-rounded display value - comparing against a rounded
+                // number could misclassify a borderline reading (e.g. a true
+                // 45.4 rounding to "45" and appearing further from a 45.5
+                // threshold than it actually is).
+                val numericValue = extracted?.toDoubleOrNull()
                 val idealRaw = payloads["${panel.brokerId}|${panel.idealRangeTopic}"]
                 val min = idealRaw?.let { JsonPath.extract(it, panel.idealMinPath) }?.toDoubleOrNull()
                 val max = idealRaw?.let { JsonPath.extract(it, panel.idealMaxPath) }?.toDoubleOrNull()

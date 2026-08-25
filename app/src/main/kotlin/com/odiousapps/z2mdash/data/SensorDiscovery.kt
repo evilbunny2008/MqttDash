@@ -66,6 +66,11 @@ object SensorDiscovery {
         // cluster (lower sorts first). Missing/null entries fall back to
         // [groupOrder], then declaration order.
         val panelOrders: List<Int?> = emptyList(),
+        // Optional. Parallel to panelFields by index - how many decimal
+        // places to round that field's displayed value to, e.g. 0 for a
+        // humidity percentage or 1 for a temperature. Missing/null entries
+        // fall back to Panel.Sensor's own default (1).
+        val panelDecimals: List<Int?> = emptyList(),
         // Optional. Toggle/command panels (blinds, plugs, anything with an
         // on/off-style command) declared alongside the sensor fields above.
         val controls: List<ControlConfig> = emptyList()
@@ -184,6 +189,8 @@ object SensorDiscovery {
             val panelClusters = panelClustersArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
             val panelOrdersArray = obj["panel_order"] as? JsonArray
             val panelOrders = panelOrdersArray?.map { (it as? JsonPrimitive)?.intOrNull } ?: emptyList()
+            val panelDecimalsArray = obj["panel_decimals"] as? JsonArray
+            val panelDecimals = panelDecimalsArray?.map { (it as? JsonPrimitive)?.intOrNull } ?: emptyList()
             val numericKeys = obj.entries
                 .filter { (_, v) -> (v as? JsonPrimitive)?.doubleOrNull != null }
                 .map { it.key }
@@ -193,7 +200,18 @@ object SensorDiscovery {
                 val maxKey = "${base}_max"
                 if (maxKey in numericKeys) rangePairs[base] = minKey to maxKey
             }
-            DeviceAppConfig(name, group, groupOrder, panelFields, labels, rangePairs, panelClusters, panelOrders, controls)
+            DeviceAppConfig(
+                name = name,
+                group = group,
+                groupOrder = groupOrder,
+                panelFields = panelFields,
+                labels = labels,
+                rangePairs = rangePairs,
+                panelClusters = panelClusters,
+                panelOrders = panelOrders,
+                panelDecimals = panelDecimals,
+                controls = controls
+            )
         }
     } catch (_: Exception) {
         null
@@ -307,7 +325,8 @@ object SensorDiscovery {
                 idealMinPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.first } ?: "min",
                 idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
                 clusterName = clusterName,
-                displayOrder = deviceConfig.panelOrders.getOrNull(index) ?: deviceConfig.groupOrder ?: Int.MAX_VALUE
+                displayOrder = deviceConfig.panelOrders.getOrNull(index) ?: deviceConfig.groupOrder ?: Int.MAX_VALUE,
+                decimals = deviceConfig.panelDecimals.getOrNull(index) ?: 1
             )
         }
 

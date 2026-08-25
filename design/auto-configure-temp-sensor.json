@@ -1,0 +1,8 @@
+{
+  "name": "Room1 - 01",
+  "group": "Temps",
+  "group_order": 1,
+  "labels": ["LQI","Humid","Temp"],
+  "panels": ["linkquality", "humidity", "temperature"],
+  "panel_decimals": [0, 0, 1]
+}

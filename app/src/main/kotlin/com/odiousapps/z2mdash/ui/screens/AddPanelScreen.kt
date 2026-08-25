@@ -90,6 +90,9 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     var topic by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.topic ?: "") }
     var jsonPath by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.jsonPath ?: "") }
     var unit by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.unit ?: "") }
+    var decimalsText by remember(existing) {
+        mutableStateOf(((existing as? Panel.Sensor)?.decimals ?: 1).toString())
+    }
     var idealRangeTopic by remember(existing) {
         mutableStateOf((existing as? Panel.Sensor)?.idealRangeTopic ?: "")
     }
@@ -145,7 +148,8 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 idealMinPath = idealMinPath,
                                 idealMaxPath = idealMaxPath,
                                 clusterName = clusterName,
-                                displayOrder = displayOrderValue
+                                displayOrder = displayOrderValue,
+                                decimals = decimalsText.toIntOrNull() ?: 1
                             )
                             "Toggle" -> Panel.Toggle(
                                 id = existing?.id ?: UUID.randomUUID().toString(),
@@ -302,6 +306,15 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                         value = unit,
                         onValueChange = { unit = it },
                         label = { Text("Unit (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = decimalsText,
+                        onValueChange = { decimalsText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Decimal places") },
+                        placeholder = { Text("e.g. 0 to round to the nearest whole number") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(16.dp))
