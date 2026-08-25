@@ -1,8 +1,8 @@
 {
   "comment": "This needs to be added to MQTT topic for the device as a retained message, that is zigbee2mqtt/Light_01/app",
-  "name": "Kitchen South",
+  "name": "Kitchen",
   "group": "Blinds",
-  "group_order": 2,
+  "group_order": 1,
   "panels": ["linkquality"],
   "labels": ["LQI"],
   "controls": [
@@ -12,6 +12,11 @@
       "state_field": "state",
       "on_payload": {"state": "OPEN"},
       "off_payload": {"state": "CLOSE"}
+    },
+    {
+      "label": "Stop",
+      "command_topic": "z2m2/Blind_01/set",
+      "on_payload": {"state": "STOP"}
     }
   ]
 }
