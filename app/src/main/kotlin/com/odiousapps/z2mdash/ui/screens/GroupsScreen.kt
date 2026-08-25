@@ -143,13 +143,21 @@ fun GroupsScreen(navController: NavController) {
                                                     val currentIndex = currentOrder.indexOf(group.id)
                                                     val targetIndex = (currentIndex + indexDelta)
                                                         .coerceIn(0, currentOrder.lastIndex)
-                                                    if (targetIndex != currentIndex) {
+                                                    // The actual, possibly-clamped move - not the raw
+                                                    // requested indexDelta. Dragging past the top/bottom
+                                                    // edge keeps requesting a move that can't happen; only
+                                                    // compensate dragOffsetY for movement that genuinely
+                                                    // occurred, or it resets back toward zero on every
+                                                    // threshold crossing even while pinned at an edge,
+                                                    // which is what was causing the jump/bounce there.
+                                                    val actualDelta = targetIndex - currentIndex
+                                                    if (actualDelta != 0) {
                                                         val reordered = currentOrder.toMutableList()
                                                         reordered.removeAt(currentIndex)
                                                         reordered.add(targetIndex, group.id)
                                                         dragVisualOrder = reordered
+                                                        dragOffsetY -= actualDelta * height
                                                     }
-                                                    dragOffsetY -= indexDelta * height
                                                 }
                                             }
                                         }
