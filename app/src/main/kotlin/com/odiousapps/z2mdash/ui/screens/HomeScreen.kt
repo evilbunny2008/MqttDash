@@ -620,41 +620,6 @@ private fun PanelTile(
     }
 }
 
-/**
- * If the just-reordered cluster's panels belong to an auto-configured device
- * (one whose panels were built from its own "/app" topic), rewrites that
- * device's current /app payload with updated ordering info matching the new
- * arrangement and republishes it retained - so a later, unrelated republish
- * of that topic (which the background reconciler treats as authoritative)
- * doesn't quietly revert this manual reorder back to whatever order the
- * device's own config originally declared. A no-op for manually-added panels
- * that were never auto-configured in the first place.
- */
-private fun pushOrderUpdateIfAutoConfigured(
-    app: Z2mDashApplication,
-    payloads: Map<String, String>,
-    orderedPanelIds: List<String>,
-    panels: List<Panel>
-) {
-    val config = app.configRepository.config.value
-    val panelIdSet = orderedPanelIds.toSet()
-    val device = config.autoConfiguredDevices.find { it.createdPanelIds.any { id -> id in panelIdSet } } ?: return
-    val currentPayload = payloads["${device.brokerId}|${device.appConfigTopic}"] ?: return
-
-    val panelById = panels.associateBy { it.id }
-    val orderByFieldOrLabel = orderedPanelIds.withIndex().mapNotNull { (index, id) ->
-        val panel = panelById[id] ?: return@mapNotNull null
-        val key = when (panel) {
-            is Panel.Sensor -> panel.jsonPath
-            is Panel.Toggle -> panel.label
-        }
-        key to index
-    }.toMap()
-
-    val updatedPayload = SensorDiscovery.updateOrderingInAppPayload(currentPayload, orderByFieldOrLabel) ?: return
-    app.connectionManager.publish(device.brokerId, device.appConfigTopic, updatedPayload, retain = true)
-}
-
 /** Builds and stores the panels for a newly-accepted pending device, then clears it from the pending list. */
 private fun addPendingDevice(
     app: Z2mDashApplication,

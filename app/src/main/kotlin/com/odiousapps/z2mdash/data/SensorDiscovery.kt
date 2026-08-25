@@ -338,48 +338,4 @@ object SensorDiscovery {
         key.contains("battery", ignoreCase = true) -> "%"
         else -> ""
     }
-
-    /**
-     * Rewrites a device's current "/app" payload with updated ordering only -
-     * "panel_order" for sensor fields (matched by field name, the "panels"
-     * array entry text) and "order" per control (matched by its "label") -
-     * keyed by [orderByFieldOrLabel]. Everything else in the payload (name,
-     * group, labels, on/off payloads, etc.) passes through completely
-     * unchanged. Returns null if the payload isn't a JSON object.
-     */
-    fun updateOrderingInAppPayload(currentPayload: String, orderByFieldOrLabel: Map<String, Int>): String? {
-        return try {
-            val obj = Json.parseToJsonElement(currentPayload) as? JsonObject ?: return null
-            val mutableFields = obj.toMutableMap()
-
-            val panelsArray = obj["panels"] as? JsonArray
-            if (panelsArray != null) {
-                val panelOrderArray = panelsArray.map { fieldElement ->
-                    val fieldName = (fieldElement as? JsonPrimitive)?.contentOrNull
-                    val order = fieldName?.let { orderByFieldOrLabel[it] }
-                    if (order != null) JsonPrimitive(order) else JsonNull
-                }
-                mutableFields["panel_order"] = JsonArray(panelOrderArray)
-            }
-
-            val controlsArray = obj["controls"] as? JsonArray
-            if (controlsArray != null) {
-                val updatedControls = controlsArray.map { controlElement ->
-                    val controlObj = controlElement as? JsonObject ?: return@map controlElement
-                    val label = (controlObj["label"] as? JsonPrimitive)?.contentOrNull
-                    val order = label?.let { orderByFieldOrLabel[it] }
-                    if (order != null) {
-                        JsonObject(controlObj.toMutableMap().apply { put("order", JsonPrimitive(order)) })
-                    } else {
-                        controlElement
-                    }
-                }
-                mutableFields["controls"] = JsonArray(updatedControls)
-            }
-
-            Json.encodeToString(JsonElement.serializer(), JsonObject(mutableFields))
-        } catch (_: Exception) {
-            null
-        }
-    }
 }
