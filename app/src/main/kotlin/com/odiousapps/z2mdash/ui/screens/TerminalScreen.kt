@@ -140,7 +140,14 @@ fun TerminalScreen() {
         floatingActionButton = {
             AnimatedVisibility(visible = showJumpToTop, enter = fadeIn(), exit = fadeOut()) {
                 FloatingActionButton(onClick = {
-                    coroutineScope.launch { listState.animateScrollToItem(0) }
+                    // Set synchronously rather than waiting for the async
+                    // scroll-settle detection below to catch up - if new
+                    // messages keep arriving while the animation is still in
+                    // flight, the size-change effect needs to already see
+                    // "anchored" as true, or it'll skip re-scrolling and the
+                    // view ends up stuck away from the true top.
+                    isAnchoredToTop = true
+                    coroutineScope.launch { listState.scrollToItem(0) }
                 }) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Jump to newest")
                 }
