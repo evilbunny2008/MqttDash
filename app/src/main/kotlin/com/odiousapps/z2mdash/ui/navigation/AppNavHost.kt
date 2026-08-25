@@ -3,7 +3,6 @@ package com.odiousapps.z2mdash.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
@@ -28,7 +27,6 @@ import com.odiousapps.z2mdash.ui.screens.DiscoverScreen
 import com.odiousapps.z2mdash.ui.screens.GroupsScreen
 import com.odiousapps.z2mdash.ui.screens.MqttBackupScreen
 import com.odiousapps.z2mdash.ui.screens.HomeScreen
-import com.odiousapps.z2mdash.ui.screens.PlaceholderScreen
 import com.odiousapps.z2mdash.ui.screens.SettingsScreen
 import com.odiousapps.z2mdash.ui.screens.TerminalScreen
 import com.odiousapps.z2mdash.ui.screens.WelcomeScreen
@@ -37,7 +35,6 @@ private data class BottomTab(val route: String, val label: String, val icon: Ima
 
 private val bottomTabs = listOf(
     BottomTab("home", "Home", Icons.Default.Home),
-    BottomTab("scripts", "Scripts", Icons.Default.PlayArrow),
     BottomTab("terminal", "Terminal", Icons.Default.Terminal),
     BottomTab("settings", "Settings", Icons.Default.Settings)
 )
@@ -77,7 +74,6 @@ fun AppNavHost() {
         ) {
             composable("home") { HomeScreen(navController) }
             composable("welcome") { WelcomeScreen(navController) }
-            composable("scripts") { PlaceholderScreen("Scripts") }
             composable("terminal") { TerminalScreen() }
             composable("settings") { SettingsScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
