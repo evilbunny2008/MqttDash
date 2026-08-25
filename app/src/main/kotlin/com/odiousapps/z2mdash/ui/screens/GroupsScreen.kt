@@ -98,9 +98,6 @@ fun GroupsScreen(navController: NavController) {
                     leadingContent = {
                         DragHandle(
                             modifier = Modifier
-                                .onGloballyPositioned { coordinates ->
-                                    if (rowHeightPx == 0f) rowHeightPx = coordinates.size.height.toFloat()
-                                }
                                 .pointerInput(group.id) {
                                     detectDragGestures(
                                         onDragStart = {
@@ -148,6 +145,16 @@ fun GroupsScreen(navController: NavController) {
                         }
                     },
                     modifier = Modifier
+                        // Measures the *whole row*, not just the drag handle -
+                        // the handle alone is much shorter than the full
+                        // ListItem (headline + supporting text + trailing
+                        // buttons), so using its height as "how tall is one
+                        // row" badly undercounted, causing every unit of
+                        // actual drag distance to register as crossing
+                        // roughly twice as many rows as it really did.
+                        .onGloballyPositioned { coordinates ->
+                            if (rowHeightPx == 0f) rowHeightPx = coordinates.size.height.toFloat()
+                        }
                         .clickable {
                             renamingGroup = group
                             renameText = group.name
