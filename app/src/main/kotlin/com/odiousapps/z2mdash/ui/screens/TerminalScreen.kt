@@ -59,6 +59,15 @@ import kotlin.time.Duration.Companion.milliseconds
 private const val ALL_BROKERS = "__all__"
 private const val MAX_LOGGED_MESSAGES_LABEL = "300"
 
+/** Shared by the rendered list and the auto-scroll effect, so they can never disagree on what's currently showing. */
+private fun filterMessages(log: List<LoggedMessage>, filterText: String, brokerId: String): List<LoggedMessage> =
+    log.filter { entry ->
+        (brokerId == ALL_BROKERS || entry.brokerId == brokerId) &&
+            (filterText.isBlank() ||
+                entry.topic.contains(filterText, ignoreCase = true) ||
+                entry.payload.contains(filterText, ignoreCase = true))
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TerminalScreen() {
@@ -90,12 +99,7 @@ fun TerminalScreen() {
     // message required fighting LazyColumn's own anchor-preservation just to
     // stay visible.
     val filtered = remember(messageLog, filterText, selectedBrokerId) {
-        messageLog.filter { entry ->
-            (selectedBrokerId == ALL_BROKERS || entry.brokerId == selectedBrokerId) &&
-                (filterText.isBlank() ||
-                    entry.topic.contains(filterText, ignoreCase = true) ||
-                    entry.payload.contains(filterText, ignoreCase = true))
-        }
+        filterMessages(messageLog, filterText, selectedBrokerId)
     }
 
     val listState = rememberLazyListState()
@@ -145,15 +149,22 @@ fun TerminalScreen() {
     var jumpToBottomRequest by remember { mutableIntStateOf(0) }
     LaunchedEffect(listState) {
         var lastHandledRequest = jumpToBottomRequest
-        snapshotFlow { messageLogState.value.size to jumpToBottomRequest }.collect { (size, request) ->
-            val newMessageArrived = size != lastMessageLogSize
-            val manualRequest = request != lastHandledRequest
-            lastMessageLogSize = size
-            lastHandledRequest = request
-            if (filtered.isNotEmpty() && (manualRequest || (newMessageArrived && isAnchoredToBottom))) {
-                listState.scrollToItem(filtered.size - 1)
+        snapshotFlow { Triple(messageLogState.value.size, jumpToBottomRequest, filterMessages(messageLogState.value, filterText, selectedBrokerId).size) }
+            .collect { (rawSize, request, currentFilteredSize) ->
+                val newMessageArrived = rawSize != lastMessageLogSize
+                val manualRequest = request != lastHandledRequest
+                lastMessageLogSize = rawSize
+                lastHandledRequest = request
+                // Recomputed fresh from live state above rather than closing over
+                // the composable-scope `filtered` val - this LaunchedEffect only
+                // launches once (its key, listState, never changes), so a captured
+                // closure variable would stay frozen at whatever it was during the
+                // very first composition, silently scrolling to a stale target
+                // forever instead of tracking new messages as they actually arrive.
+                if (currentFilteredSize > 0 && (manualRequest || (newMessageArrived && isAnchoredToBottom))) {
+                    listState.scrollToItem(currentFilteredSize - 1)
+                }
             }
-        }
     }
 
     Scaffold(
