@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -99,14 +100,27 @@ fun GroupsScreen(navController: NavController) {
                 modifier = Modifier.padding(padding).padding(16.dp)
             )
         }
-        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+        val listState = rememberLazyListState()
+        LazyColumn(state = listState, modifier = Modifier.padding(padding).fillMaxSize()) {
             items(config.groups, key = { it.id }) { group ->
                 val naturalIndex = config.groups.indexOfFirst { it.id == group.id }
                 val isDragging = draggedGroupId == group.id
-                val isInsertionTarget = draggedGroupId != null &&
-                    draggedGroupId != group.id &&
+                // Direction matters for where the insertion line goes relative
+                // to the target row. Dragging down past a row means the
+                // dragged item will end up *after* it; dragging up past a row
+                // means it'll end up *before* it. Showing the line on the
+                // wrong side (e.g. always "after") looks correct for one
+                // direction and backwards for the other - dragging to the
+                // very top specifically only ever approaches from below, so
+                // that mismatch was invisible for every case except that one.
+                val showLineBefore = draggedGroupId != null && draggedFromIndex > draggedToIndex &&
+                    naturalIndex == draggedToIndex
+                val showLineAfter = draggedGroupId != null && draggedFromIndex < draggedToIndex &&
                     naturalIndex == draggedToIndex
 
+                if (showLineBefore) {
+                    InsertionLine()
+                }
                 ListItem(
                     headlineContent = { Text(group.name) },
                     supportingContent = { Text("${group.panels.size} panel${if (group.panels.size == 1) "" else "s"}") },
@@ -122,13 +136,22 @@ fun GroupsScreen(navController: NavController) {
                                             dragOffsetY = 0f
                                         },
                                         onDragEnd = {
-                                            if (draggedToIndex != draggedFromIndex && draggedToIndex >= 0) {
-                                                app.configRepository.moveGroupToIndex(group.id, draggedToIndex + 1)
+                                            val targetIndex = draggedToIndex
+                                            if (targetIndex != draggedFromIndex && targetIndex >= 0) {
+                                                app.configRepository.moveGroupToIndex(group.id, targetIndex + 1)
                                             }
                                             draggedGroupId = null
                                             draggedFromIndex = -1
                                             draggedToIndex = -1
                                             dragOffsetY = 0f
+                                            // Bring the moved group into view - if it landed
+                                            // near the top/bottom of a longer list than fits
+                                            // on screen, the viewport otherwise stays exactly
+                                            // where it was, which can leave the just-moved
+                                            // item scrolled out of sight entirely.
+                                            if (targetIndex >= 0) {
+                                                listState.requestScrollToItem(targetIndex)
+                                            }
                                         },
                                         onDragCancel = {
                                             draggedGroupId = null
@@ -185,14 +208,12 @@ fun GroupsScreen(navController: NavController) {
                             renameText = group.name
                         }
                 )
-                if (isInsertionTarget) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
+                if (showLineAfter) {
+                    InsertionLine()
                 } else {
+                    // showLineBefore only concerns the boundary *above* this
+                    // row - it still needs its own normal divider below it
+                    // regardless.
                     HorizontalDivider()
                 }
             }
@@ -223,6 +244,17 @@ fun GroupsScreen(navController: NavController) {
             }
         )
     }
+}
+
+/** A highlighted bar replacing the normal divider, showing where a dragged group would land if dropped now. */
+@Composable
+private fun InsertionLine() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .background(MaterialTheme.colorScheme.primary)
+    )
 }
 
 /** Three short bars, the standard "grip" visual for a drag handle - built from basic primitives rather than a named icon, to avoid depending on one specific icon's presence in this project's icon set. */
