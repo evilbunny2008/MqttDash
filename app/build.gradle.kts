@@ -1,3 +1,5 @@
+import com.android.build.api.artifact.SingleArtifact
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -50,40 +52,44 @@ android {
     }
 }
 
-// Renames the release .aab to "<appName>-<versionName>.aab" instead of the
-// default "app-release.aab". AAB output (unlike APK variant outputs) has no
-// directly settable output-filename property, so the standard approach is a
-// task that runs after "bundleRelease" and copies the produced file under a
-// new name in the same directory - the original "app-release.aab" is left in
-// place alongside it (some later/downstream tasks, e.g. Play Store upload
-// plugins, expect to find that exact default name, so this only adds a copy
-// rather than replacing it).
+// Renames the release .aab from AGP's default "app-release.aab" to
+// "<appName>-<versionName>.aab", in place, within app/release/ (already
+// gitignored) - which turns out to already be this project's actual bundle
+// output location (confirmed by an AGP validation error naming that exact
+// path as a declared input elsewhere), not a separate custom destination to
+// copy into as originally assumed. Critically, this must run *after* AGP's
+// own internal "produce...BundleIdeListingFile" task, which declares the
+// bundle at its default name as one of its own inputs - renaming (or
+// deleting) it any earlier fails that task's input validation with "file
+// doesn't exist", which is what happened when this was ordered the other
+// way around.
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
         val appName = "Z2mDash"
-        val versionName = android.defaultConfig.versionName ?: "unknown"
+        val versionName = variant.outputs.first().versionName
         val variantNameCapitalized = variant.name.replaceFirstChar { it.uppercase() }
-        tasks.register("renameBundle${variantNameCapitalized}") {
-            dependsOn("bundle$variantNameCapitalized")
+        val ideListingTaskName = "produce${variantNameCapitalized}BundleIdeListingFile"
+
+        val renameBundle = tasks.register("renameBundle$variantNameCapitalized") {
+            mustRunAfter(ideListingTaskName)
             doLast {
-                val bundleDir = layout.buildDirectory.dir("outputs/bundle/${variant.name}").get().asFile
-                val originalFile = bundleDir.listFiles { f -> f.extension == "aab" }?.firstOrNull()
-                if (originalFile != null) {
-                    val renamedFile = File(bundleDir, "$appName-$versionName.aab")
-                    originalFile.copyTo(renamedFile, overwrite = true)
-                    println("Copied ${originalFile.name} to ${renamedFile.name}")
+                val bundleFile = variant.artifacts.get(SingleArtifact.BUNDLE).get().asFile
+                if (bundleFile.exists()) {
+                    val renamedFile = File(bundleFile.parentFile, "$appName-${versionName.get()}.aab")
+                    bundleFile.copyTo(renamedFile, overwrite = true)
+                    bundleFile.delete()
                 } else {
-                    println("No .aab file found in $bundleDir to rename")
+                    println("Expected bundle file not found at $bundleFile - skipping rename")
                 }
             }
         }
-        // Hooks the rename task onto the standard "bundle" task graph, so it
-        // also runs automatically from Android Studio's Build > Generate
-        // Signed App Bundle flow (which invokes bundleRelease directly),
-        // not just when the rename task is run explicitly by name.
+        // Hooks the rename onto the standard "bundle" task graph, so it also
+        // runs automatically from Android Studio's Build > Generate Signed
+        // App Bundle flow (which invokes bundleRelease directly), not just
+        // when this task is run explicitly by name.
         afterEvaluate {
             tasks.named("bundle$variantNameCapitalized") {
-                finalizedBy("renameBundle$variantNameCapitalized")
+                finalizedBy(renameBundle)
             }
         }
     }

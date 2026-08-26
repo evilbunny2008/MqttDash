@@ -58,3 +58,9 @@
 -dontwarn org.slf4j.helpers.MessageFormatter
 -dontwarn org.slf4j.helpers.NOPLoggerFactory
 -dontwarn org.slf4j.spi.LocationAwareLogger
+# Optional Reactor/Netty integration hook this app doesn't use or depend on
+# directly - referenced only via a META-INF/services entry that R8 flags
+# during minification even though the file itself is excluded from the
+# final package (that packaging.resources.excludes rule only applies to the
+# final packaging step, after R8 has already processed the merged resources).
+-dontwarn reactor.blockhound.integration.BlockHoundIntegration
