@@ -50,6 +50,45 @@ android {
     }
 }
 
+// Renames the release .aab to "<appName>-<versionName>.aab" instead of the
+// default "app-release.aab". AAB output (unlike APK variant outputs) has no
+// directly settable output-filename property, so the standard approach is a
+// task that runs after "bundleRelease" and copies the produced file under a
+// new name in the same directory - the original "app-release.aab" is left in
+// place alongside it (some later/downstream tasks, e.g. Play Store upload
+// plugins, expect to find that exact default name, so this only adds a copy
+// rather than replacing it).
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        val appName = "Z2mDash"
+        val versionName = android.defaultConfig.versionName ?: "unknown"
+        val variantNameCapitalized = variant.name.replaceFirstChar { it.uppercase() }
+        tasks.register("renameBundle${variantNameCapitalized}") {
+            dependsOn("bundle$variantNameCapitalized")
+            doLast {
+                val bundleDir = layout.buildDirectory.dir("outputs/bundle/${variant.name}").get().asFile
+                val originalFile = bundleDir.listFiles { f -> f.extension == "aab" }?.firstOrNull()
+                if (originalFile != null) {
+                    val renamedFile = File(bundleDir, "$appName-$versionName.aab")
+                    originalFile.copyTo(renamedFile, overwrite = true)
+                    println("Copied ${originalFile.name} to ${renamedFile.name}")
+                } else {
+                    println("No .aab file found in $bundleDir to rename")
+                }
+            }
+        }
+        // Hooks the rename task onto the standard "bundle" task graph, so it
+        // also runs automatically from Android Studio's Build > Generate
+        // Signed App Bundle flow (which invokes bundleRelease directly),
+        // not just when the rename task is run explicitly by name.
+        afterEvaluate {
+            tasks.named("bundle$variantNameCapitalized") {
+                finalizedBy("renameBundle$variantNameCapitalized")
+            }
+        }
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.19.0")
     implementation("androidx.activity:activity-compose:1.13.0")
