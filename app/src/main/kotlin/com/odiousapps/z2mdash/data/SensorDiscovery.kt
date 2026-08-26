@@ -276,15 +276,23 @@ object SensorDiscovery {
 
     /**
      * Builds the panels described by [deviceConfig]: Sensor panels from
-     * panelFields, plus Toggle panels from any declared controls. Each sensor
-     * field is looked up first in [sensorFieldKeys] (the main sensor topic),
-     * then in the app-config topic itself (covers fields like "moisture_min"
-     * that only exist in the config payload). Fields findable in neither are
-     * skipped. Any field that's part of a detected "<base>_min"/"<base>_max"
-     * pair gets wired up with an ideal range pointing at the app-config topic
-     * - except the min/max fields themselves, which would otherwise trivially
-     * compare against their own value. Pure function: callers decide where
-     * the resulting panels actually get stored.
+     * panelFields, plus Toggle/Button panels from any declared controls. Each
+     * sensor field is pointed at the app-config topic specifically if it's
+     * actually found there (covers fields like "moisture_min" that only
+     * exist in the config payload), otherwise it defaults to the main sensor
+     * topic - trusting panelFields' own declaration of what to expect there,
+     * regardless of whether a live message has been seen on that topic yet.
+     * [sensorFieldKeys] is currently unused here (kept for now to avoid
+     * churning every call site) - an earlier version required a field to
+     * already be confirmed live on the sensor topic before a panel would be
+     * created for it at all, which meant a perfectly valid device could
+     * never be added if its sensor topic simply hadn't published anything
+     * since the app last connected. Any field that's part of a detected
+     * "<base>_min"/"<base>_max" pair gets wired up with an ideal range
+     * pointing at the app-config topic - except the min/max fields
+     * themselves, which would otherwise trivially compare against their own
+     * value. Pure function: callers decide where the resulting panels
+     * actually get stored.
      */
     fun buildPanels(
         brokerId: String,
@@ -298,11 +306,23 @@ object SensorDiscovery {
         val deviceClusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
 
         val sensorPanels: List<Panel> = deviceConfig.panelFields.mapIndexedNotNull { index, field ->
-            val topic = when {
-                field in sensorFieldKeys -> sensorTopic
-                appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null -> appConfigTopic
-                else -> null
-            } ?: return@mapIndexedNotNull null
+            // Prefer the app-config topic specifically when this field is
+            // actually found there (some devices publish live sensor values
+            // directly alongside their own config, on the same topic).
+            // Otherwise, trust the /app config's own declaration of which
+            // fields to expect and default to the sensor topic - even if it
+            // hasn't published anything yet (e.g. a slow-reporting device,
+            // or one that simply hasn't sent a message since the app last
+            // connected). The panel will just show "--" until a real message
+            // arrives, same as any other freshly-added panel; gating panel
+            // *creation* on a live message already having been seen meant a
+            // perfectly valid device could never be added at all if its
+            // sensor topic happened to be quiet at that exact moment.
+            val topic = if (appConfigPayload != null && JsonPath.extract(appConfigPayload, field) != null) {
+                appConfigTopic
+            } else {
+                sensorTopic
+            }
 
             val rangeBase = if (field !in rangeKeys) {
                 deviceConfig.rangePairs.keys.find { base -> field.contains(base, ignoreCase = true) }
