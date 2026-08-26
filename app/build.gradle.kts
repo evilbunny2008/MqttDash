@@ -1,9 +1,22 @@
 import com.android.build.api.artifact.SingleArtifact
+import java.util.Properties
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// Loads real signing credentials from a gitignored properties file rather
+// than hard-coding them here, since this file is committed to version
+// control. Falls back to leaving the release build unsigned if that file
+// doesn't exist yet (e.g. a fresh checkout) - see keystore.properties.template
+// for the expected format and what to fill in.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -18,8 +31,26 @@ android {
         versionName = "0.0.7"
     }
 
+    // Only actually configured when keystore.properties exists and has real
+    // values in it (see the loading logic above) - this way a fresh clone
+    // without that file still builds fine, it just produces an unsigned
+    // release build rather than failing outright.
+    signingConfigs {
+        if (keystoreProperties.containsKey("storeFile")) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystoreProperties.containsKey("storeFile")) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = true
             }

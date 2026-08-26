@@ -10,3 +10,8 @@
 .externalNativeBuild
 .cxx
 /gradle/gradle-daemon-jvm.properties
+# Real signing credentials - keystore.properties.template shows the format,
+# never commit the real, filled-in file or the keystore itself.
+/keystore.properties
+*.jks
+*.keystore
