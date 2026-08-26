@@ -1,3 +1,11 @@
+// Several AGP Variant API members used below (outputFileName, artifacts.get,
+// onVariants/selector for this variant-configuration style) are still
+// marked @Incubating - meaning they work correctly today but the API
+// surface could change in a future AGP release, not that anything here is
+// broken. This is the standard, conventional way to suppress that specific
+// warning category for the whole build script.
+@file:Suppress("UnstableApiUsage")
+
 import com.android.build.api.artifact.SingleArtifact
 import java.util.Properties
 
@@ -101,7 +109,15 @@ androidComponents {
         val variantNameCapitalized = variant.name.replaceFirstChar { it.uppercase() }
         val ideListingTaskName = "produce${variantNameCapitalized}BundleIdeListingFile"
 
+        // APK variant outputs support a directly settable filename, unlike
+        // the bundle (AAB) case above - no separate rename/copy task needed.
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("$appName-${versionName.get()}.apk")
+        }
+
         val renameBundle = tasks.register("renameBundle$variantNameCapitalized") {
+            group = "build"
+            description = "Renames the $variantNameCapitalized .aab in place to $appName-<versionName>.aab"
             mustRunAfter(ideListingTaskName)
             doLast {
                 val bundleFile = variant.artifacts.get(SingleArtifact.BUNDLE).get().asFile
