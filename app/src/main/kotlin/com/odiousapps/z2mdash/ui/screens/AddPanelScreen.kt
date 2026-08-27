@@ -292,137 +292,141 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                     }
                 }
 
-                if (panelType == "Sensor") {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = topic,
-                        onValueChange = { topic = it },
-                        label = { Text("Topic") },
-                        placeholder = { Text("e.g. zigbee2mqtt/Soil Sensor 1") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = jsonPath,
-                        onValueChange = { jsonPath = it },
-                        label = { Text("JSON field (blank = raw payload)") },
-                        placeholder = { Text("e.g. temperature or state.battery") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = unit,
-                        onValueChange = { unit = it },
-                        label = { Text("Unit (optional)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = decimalsText,
-                        onValueChange = { decimalsText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Decimal places") },
-                        placeholder = { Text("e.g. 0 to round to the nearest whole number") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = idealRangeTopic,
-                        onValueChange = { idealRangeTopic = it },
-                        label = { Text("Ideal range topic (optional)") },
-                        placeholder = { Text("e.g. z2m2/SoilSensor_01/ideal \u2013 publishes {\"min\":x,\"max\":y}") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (idealRangeTopic.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
+                when (panelType) {
+                    "Sensor" -> {
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = topic,
+                            onValueChange = { topic = it },
+                            label = { Text("Topic") },
+                            placeholder = { Text("e.g. zigbee2mqtt/Soil Sensor 1") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = jsonPath,
+                            onValueChange = { jsonPath = it },
+                            label = { Text("JSON field (blank = raw payload)") },
+                            placeholder = { Text("e.g. temperature or state.battery") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = unit,
+                            onValueChange = { unit = it },
+                            label = { Text("Unit (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = decimalsText,
+                            onValueChange = { decimalsText = it.filter { c -> c.isDigit() } },
+                            label = { Text("Decimal places") },
+                            placeholder = { Text("e.g. 0 to round to the nearest whole number") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = idealRangeTopic,
+                            onValueChange = { idealRangeTopic = it },
+                            label = { Text("Ideal range topic (optional)") },
+                            placeholder = { Text("e.g. z2m2/SoilSensor_01/ideal \u2013 publishes {\"min\":x,\"max\":y}") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (idealRangeTopic.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(
+                                    value = idealMinPath,
+                                    onValueChange = { idealMinPath = it },
+                                    label = { Text("Min field name") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(
+                                    value = idealMaxPath,
+                                    onValueChange = { idealMaxPath = it },
+                                    label = { Text("Max field name") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Text(
+                                "Only needed if the topic doesn't use plain \"min\"/\"max\" keys \u2013 " +
+                                        "e.g. set these to \"moisture_min\"/\"moisture_max\" for a shared device config topic.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Text(
+                            "When set, this tile flashes red below min, green within range, and blue above max.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    "Toggle" -> {
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = commandTopic,
+                            onValueChange = { commandTopic = it },
+                            label = { Text("Command topic") },
+                            placeholder = { Text("e.g. zigbee2mqtt/Kitchen Plug/set") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
-                                value = idealMinPath,
-                                onValueChange = { idealMinPath = it },
-                                label = { Text("Min field name") },
+                                value = onPayload,
+                                onValueChange = { onPayload = it },
+                                label = { Text("ON payload") },
                                 modifier = Modifier.weight(1f)
                             )
                             Spacer(Modifier.width(8.dp))
                             OutlinedTextField(
-                                value = idealMaxPath,
-                                onValueChange = { idealMaxPath = it },
-                                label = { Text("Max field name") },
+                                value = offPayload,
+                                onValueChange = { offPayload = it },
+                                label = { Text("OFF payload") },
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = stateTopic,
+                            onValueChange = { stateTopic = it },
+                            label = { Text("State topic (optional)") },
+                            placeholder = { Text("e.g. zigbee2mqtt/Kitchen Plug") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = stateJsonPath,
+                            onValueChange = { stateJsonPath = it },
+                            label = { Text("State JSON field (optional)") },
+                            placeholder = { Text("e.g. state") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    else -> {
+                        // Button
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = commandTopic,
+                            onValueChange = { commandTopic = it },
+                            label = { Text("Command topic") },
+                            placeholder = { Text("e.g. zigbee2mqtt/Blind_01/set") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = buttonPayload,
+                            onValueChange = { buttonPayload = it },
+                            label = { Text("Payload") },
+                            placeholder = { Text("e.g. {\"state\": \"STOP\"} or a bare value like STOP") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Text(
-                            "Only needed if the topic doesn't use plain \"min\"/\"max\" keys \u2013 " +
-                                "e.g. set these to \"moisture_min\"/\"moisture_max\" for a shared device config topic.",
+                            "Sent every time this button is tapped - there's no on/off state to track.",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    Text(
-                        "When set, this tile flashes red below min, green within range, and blue above max.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                } else if (panelType == "Toggle") {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = commandTopic,
-                        onValueChange = { commandTopic = it },
-                        label = { Text("Command topic") },
-                        placeholder = { Text("e.g. zigbee2mqtt/Kitchen Plug/set") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = onPayload,
-                            onValueChange = { onPayload = it },
-                            label = { Text("ON payload") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        OutlinedTextField(
-                            value = offPayload,
-                            onValueChange = { offPayload = it },
-                            label = { Text("OFF payload") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = stateTopic,
-                        onValueChange = { stateTopic = it },
-                        label = { Text("State topic (optional)") },
-                        placeholder = { Text("e.g. zigbee2mqtt/Kitchen Plug") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = stateJsonPath,
-                        onValueChange = { stateJsonPath = it },
-                        label = { Text("State JSON field (optional)") },
-                        placeholder = { Text("e.g. state") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    // Button
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = commandTopic,
-                        onValueChange = { commandTopic = it },
-                        label = { Text("Command topic") },
-                        placeholder = { Text("e.g. zigbee2mqtt/Blind_01/set") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = buttonPayload,
-                        onValueChange = { buttonPayload = it },
-                        label = { Text("Payload") },
-                        placeholder = { Text("e.g. {\"state\": \"STOP\"} or a bare value like STOP") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        "Sent every time this button is tapped - there's no on/off state to track.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
                 }
 
                 if (existing != null) {

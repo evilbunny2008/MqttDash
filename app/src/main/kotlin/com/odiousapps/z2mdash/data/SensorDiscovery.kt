@@ -305,7 +305,7 @@ object SensorDiscovery {
         val rangeKeys = deviceConfig.rangePairs.values.flatMap { (min, max) -> listOf(min, max) }.toSet()
         val deviceClusterName = deviceConfig.name.ifBlank { sensorTopic.substringAfterLast("/") }
 
-        val sensorPanels: List<Panel> = deviceConfig.panelFields.mapIndexedNotNull { index, field ->
+        val sensorPanels: List<Panel> = deviceConfig.panelFields.mapIndexed { index, field ->
             // Prefer the app-config topic specifically when this field is
             // actually found there (some devices publish live sensor values
             // directly alongside their own config, on the same topic).

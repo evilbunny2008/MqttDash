@@ -72,7 +72,7 @@ fun GroupsScreen(navController: NavController) {
     // per-row offsets (which fought the same anchor-preservation machinery
     // in subtler ways). Instead, every row stays exactly where it is for
     // the whole gesture, the dragged row just gets a highlight, and a
-    // colored insertion line shows where it would land. Nothing about the
+    // coloured insertion line shows where it would land. Nothing about the
     // layout changes until the drag ends, at which point a single clean
     // reorder is committed and the list updates normally.
     var draggedGroupId by remember { mutableStateOf<String?>(null) }

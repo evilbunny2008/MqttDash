@@ -111,7 +111,7 @@ fun TerminalScreen() {
     }
 
     // New entries append at the end - jump there whenever one arrives and the
-    // user hasn't scrolled away. Uses requestScrollToItem rather than the
+    // user hasn't scrolled away. Uses requestScrollToItem rather than
     // suspend scrollToItem: it's synchronous (no coroutine needed at all, so
     // there's nothing to race or cancel between this and the FAB's manual
     // jump below) and explicitly resolves "at the next remeasure," which

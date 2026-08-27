@@ -2,23 +2,22 @@ package com.odiousapps.z2mdash.ui.screens
 
 import android.text.format.DateUtils
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -56,8 +55,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -75,9 +72,9 @@ import com.odiousapps.z2mdash.ui.components.ButtonTile
 import com.odiousapps.z2mdash.ui.components.SensorAlert
 import com.odiousapps.z2mdash.ui.components.SensorTile
 import com.odiousapps.z2mdash.ui.components.ToggleTile
+import kotlinx.coroutines.delay
 import java.util.UUID
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
@@ -640,7 +637,7 @@ private fun PanelTile(
             val alert = if (panel.idealRangeTopic.isBlank()) {
                 SensorAlert.NONE
             } else {
-                // Deliberately re-parses the original extracted text, not the
+                // Deliberately reparses the original extracted text, not the
                 // now-rounded display value - comparing against a rounded
                 // number could misclassify a borderline reading (e.g. a true
                 // 45.4 rounding to "45" and appearing further from a 45.5
