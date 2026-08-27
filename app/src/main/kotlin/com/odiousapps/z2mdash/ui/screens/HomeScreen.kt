@@ -618,12 +618,25 @@ private fun PanelTile(
         is Panel.Sensor -> {
             val raw = payloads["${panel.brokerId}|${panel.topic}"]
             val extracted = raw?.let { JsonPath.extract(it, panel.jsonPath) }
+            // Zigbee2MQTT uses "occupancy" for PIR-based motion sensors and
+            // "presence" for mmWave/radar-based ones - both mean the same
+            // thing here (is someone currently detected), so both are
+            // treated identically rather than needing the user to know
+            // which convention their specific device uses.
+            val isPresenceField = panel.jsonPath.equals("occupancy", ignoreCase = true) ||
+                panel.jsonPath.equals("presence", ignoreCase = true)
+            val isPresent = extracted?.equals("true", ignoreCase = true) == true
             // Only reformat genuinely numeric values - a non-numeric extracted
             // value (e.g. a text state like "online") passes through as-is,
             // since rounding only makes sense for actual measurements.
-            val value = extracted?.let { text ->
-                text.toDoubleOrNull()?.let { num -> "%.${panel.decimals}f".format(num) } ?: text
-            } ?: "--"
+            // Presence/occupancy fields get their own dedicated label instead
+            // of a raw "true"/"false", with the icon itself carrying the
+            // detected-or-not state visually.
+            val value = when {
+                isPresenceField -> if (extracted != null) { if (isPresent) "Detected" else "Clear" } else "--"
+                extracted != null -> extracted.toDoubleOrNull()?.let { num -> "%.${panel.decimals}f".format(num) } ?: extracted
+                else -> "--"
+            }
             val alert = if (panel.idealRangeTopic.isBlank()) {
                 SensorAlert.NONE
             } else {
@@ -651,6 +664,7 @@ private fun PanelTile(
                 unit = panel.unit,
                 alert = alert,
                 label = panel.label,
+                iconTint = if (isPresenceField && isPresent) MaterialTheme.colorScheme.primary else null,
                 onEdit = { navController.navigate("group/$groupId/panel/${panel.id}") }
             )
         }

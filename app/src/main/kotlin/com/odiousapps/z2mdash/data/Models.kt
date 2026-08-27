@@ -33,7 +33,7 @@ data class Broker(
 )
 
 @Serializable
-enum class TileIcon { HUMIDITY, MOISTURE, TEMPERATURE, SIGNAL, POWER, GAUGE, BATTERY, LIGHT }
+enum class TileIcon { HUMIDITY, MOISTURE, TEMPERATURE, SIGNAL, POWER, GAUGE, BATTERY, LIGHT, PRESENCE }
 
 @Serializable
 sealed class Panel {

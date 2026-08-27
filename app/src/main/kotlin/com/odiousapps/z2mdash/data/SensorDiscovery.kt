@@ -386,6 +386,8 @@ object SensorDiscovery {
         key.contains("temperature", ignoreCase = true) -> TileIcon.TEMPERATURE
         key.contains("battery", ignoreCase = true) -> TileIcon.BATTERY
         key.contains("linkquality", ignoreCase = true) -> TileIcon.SIGNAL
+        key.contains("occupancy", ignoreCase = true) -> TileIcon.PRESENCE
+        key.contains("presence", ignoreCase = true) -> TileIcon.PRESENCE
         else -> TileIcon.GAUGE
     }
 

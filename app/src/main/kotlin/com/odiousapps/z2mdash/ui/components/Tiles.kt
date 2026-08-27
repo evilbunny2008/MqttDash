@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -59,6 +60,7 @@ private fun iconFor(tileIcon: TileIcon): ImageVector = when (tileIcon) {
     TileIcon.GAUGE -> Icons.Default.Speed
     TileIcon.BATTERY -> Icons.Default.BatteryFull
     TileIcon.LIGHT -> Icons.Default.Lightbulb
+    TileIcon.PRESENCE -> Icons.Default.Person
 }
 
 @Composable
@@ -69,6 +71,10 @@ fun SensorTile(
     unit: String,
     label: String,
     alert: SensorAlert = SensorAlert.NONE,
+    // Only meaningful for TileIcon.PRESENCE - tints the icon to make an
+    // active "someone's here" state visually stand out, rather than needing
+    // a second, separate icon glyph for the "clear" state.
+    iconTint: Color? = null,
     onEdit: () -> Unit = {}
 ) {
     val flashingAlertColor = when (alert) {
@@ -108,7 +114,11 @@ fun SensorTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(iconFor(icon), contentDescription = null)
+            Icon(
+                iconFor(icon),
+                contentDescription = null,
+                tint = iconTint ?: LocalContentColor.current
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 if (unit.isNotBlank()) "$value$unit" else value,
