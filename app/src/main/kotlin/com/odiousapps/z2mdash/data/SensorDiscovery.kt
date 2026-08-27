@@ -388,6 +388,7 @@ object SensorDiscovery {
         key.contains("linkquality", ignoreCase = true) -> TileIcon.SIGNAL
         key.contains("occupancy", ignoreCase = true) -> TileIcon.PRESENCE
         key.contains("presence", ignoreCase = true) -> TileIcon.PRESENCE
+        key.contains("illuminance", ignoreCase = true) -> TileIcon.LIGHT
         else -> TileIcon.GAUGE
     }
 
@@ -396,6 +397,7 @@ object SensorDiscovery {
         key.contains("humidity", ignoreCase = true) -> "%"
         key.contains("moisture", ignoreCase = true) -> "%"
         key.contains("battery", ignoreCase = true) -> "%"
+        key.contains("illuminance", ignoreCase = true) -> "lx"
         else -> ""
     }
 }
