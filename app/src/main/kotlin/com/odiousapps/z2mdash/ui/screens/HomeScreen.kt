@@ -44,6 +44,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,7 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -254,6 +257,24 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                             .map { bucket -> bucket.sortedBy { it.displayOrder } }
                             .sortedBy { bucket -> bucket.minOf { it.displayOrder } }
 
+                        // Cluster drag-to-reorder state, scoped to this one group - only one
+                        // cluster can ever be dragged at a time, and only within its own
+                        // group. Unlike Groups' plain vertical list, or a panel grid's fixed
+                        // columns, clusters can sit side by side within a packed row, so
+                        // "which cluster is the drag currently over" is tracked by comparing
+                        // the current absolute drag position against each cluster's own
+                        // last-known center point (updated via onGloballyPositioned), rather
+                        // than computing a row/column index delta - a position-based nearest-
+                        // match handles the irregular, width-based row-packing correctly
+                        // whether the target is directly below, or beside, the dragged
+                        // cluster. Standalone tiles (no clusterName) aren't individually
+                        // draggable via this mechanism, though they still participate
+                        // correctly in the underlying displayOrder sequence either way.
+                        var draggedClusterKey by remember(group.id) { mutableStateOf<String?>(null) }
+                        var draggedToClusterKey by remember(group.id) { mutableStateOf<String?>(null) }
+                        var dragCurrentPosition by remember(group.id) { mutableStateOf(Offset.Zero) }
+                        val clusterCenters = remember(group.id) { mutableStateMapOf<String, Offset>() }
+
                         // Manually pack clusters/tiles into rows rather than relying on
                         // FlowRow's own wrapping - computed directly against each item's
                         // known width, so multiple clusters land on the same row whenever
@@ -324,6 +345,57 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             groupId = group.id,
                                                             name = name,
                                                             panelIds = panelsInCluster.map { it.id }
+                                                        )
+                                                    },
+                                                    isDraggingCluster = draggedClusterKey == name,
+                                                    isClusterDropTarget = draggedClusterKey != null &&
+                                                        draggedClusterKey != name &&
+                                                        draggedToClusterKey == name,
+                                                    cardModifier = Modifier.onGloballyPositioned { coordinates ->
+                                                        val topLeft = coordinates.positionInWindow()
+                                                        clusterCenters[name] = Offset(
+                                                            topLeft.x + coordinates.size.width / 2f,
+                                                            topLeft.y + coordinates.size.height / 2f
+                                                        )
+                                                    },
+                                                    captionRowModifier = Modifier.pointerInput(name) {
+                                                        detectDragGesturesAfterLongPress(
+                                                            onDragStart = {
+                                                                draggedClusterKey = name
+                                                                draggedToClusterKey = name
+                                                                dragCurrentPosition = clusterCenters[name] ?: Offset.Zero
+                                                            },
+                                                            onDragEnd = {
+                                                                val fromKey = draggedClusterKey
+                                                                val toKey = draggedToClusterKey
+                                                                if (fromKey != null && toKey != null && fromKey != toKey) {
+                                                                    val currentOrder = orderedClusters.map {
+                                                                        it.first().clusterName.ifBlank { "__single__${it.first().id}" }
+                                                                    }
+                                                                    val fromIndex = currentOrder.indexOf(fromKey)
+                                                                    val toIndex = currentOrder.indexOf(toKey)
+                                                                    if (fromIndex >= 0 && toIndex >= 0) {
+                                                                        val reordered = currentOrder.toMutableList()
+                                                                        reordered.removeAt(fromIndex)
+                                                                        reordered.add(toIndex, fromKey)
+                                                                        app.configRepository.reorderClustersInGroup(group.id, reordered)
+                                                                        pushGroupOrderUpdatesForClusters(app, payloads, reordered, group.panels)
+                                                                    }
+                                                                }
+                                                                draggedClusterKey = null
+                                                                draggedToClusterKey = null
+                                                            },
+                                                            onDragCancel = {
+                                                                draggedClusterKey = null
+                                                                draggedToClusterKey = null
+                                                            },
+                                                            onDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                dragCurrentPosition += dragAmount
+                                                                draggedToClusterKey = clusterCenters.entries
+                                                                    .minByOrNull { (_, center) -> (center - dragCurrentPosition).getDistance() }
+                                                                    ?.key
+                                                            }
                                                         )
                                                     }
                                                 )
@@ -404,6 +476,32 @@ private fun pushOrderUpdateIfAutoConfigured(
     app.connectionManager.publish(device.brokerId, device.appConfigTopic, updatedPayload, retain = true)
 }
 
+/**
+ * Reordering clusters shifts every cluster's relative position within the
+ * group, not just the one that was dragged - so every affected cluster that
+ * belongs to an auto-configured device gets its own retained "/app" update
+ * reflecting its new group_order, not just the dragged one.
+ */
+private fun pushGroupOrderUpdatesForClusters(
+    app: Z2mDashApplication,
+    payloads: Map<String, String>,
+    orderedClusterKeys: List<String>,
+    groupPanels: List<Panel>
+) {
+    val config = app.configRepository.config.value
+    val panelsByCluster = groupPanels.groupBy { it.clusterName.ifBlank { "__single__${it.id}" } }
+
+    orderedClusterKeys.forEachIndexed { index, clusterKey ->
+        val clusterPanelIds = panelsByCluster[clusterKey]?.map { it.id }?.toSet() ?: return@forEachIndexed
+        val device = config.autoConfiguredDevices.find { it.createdPanelIds.any { id -> id in clusterPanelIds } }
+            ?: return@forEachIndexed
+        val currentPayload = payloads["${device.brokerId}|${device.appConfigTopic}"] ?: return@forEachIndexed
+        val updatedPayload = SensorDiscovery.updateGroupOrderInAppPayload(currentPayload, index + 1)
+            ?: return@forEachIndexed
+        app.connectionManager.publish(device.brokerId, device.appConfigTopic, updatedPayload, retain = true)
+    }
+}
+
 /** Renders a bordered card containing every panel in [panels] ([columns] per row), with [name] as a caption below. */
 @Composable
 private fun ClusterCard(
@@ -417,7 +515,16 @@ private fun ClusterCard(
     navController: NavController,
     columns: Int,
     tileWidth: Dp,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    // Cross-cluster drag-to-reorder state/gesture-handling lives one level up
+    // (in the group section, which can see every cluster at once) and gets
+    // threaded in here, same pattern as how each panel tile receives its own
+    // drag detector via an externally-built modifier rather than owning that
+    // logic itself.
+    cardModifier: Modifier = Modifier,
+    captionRowModifier: Modifier = Modifier,
+    isDraggingCluster: Boolean = false,
+    isClusterDropTarget: Boolean = false
 ) {
     val ageText = remember(panels, payloads, timestamps, nowMillis) {
         fun topicFor(panel: Panel): String? = when (panel) {
@@ -480,6 +587,15 @@ private fun ClusterCard(
     var tileHeightPx by remember { mutableFloatStateOf(0f) }
 
     Surface(
+        modifier = cardModifier
+            .alpha(if (isDraggingCluster) 0.5f else 1f)
+            .then(
+                if (isClusterDropTarget) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 1.dp
     ) {
@@ -580,7 +696,7 @@ private fun ClusterCard(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = captionRowModifier) {
                 Text(name, style = MaterialTheme.typography.titleSmall)
                 if (ageText != null) {
                     Text(

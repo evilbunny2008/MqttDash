@@ -15,6 +15,3 @@
 /keystore.properties
 *.jks
 *.keystore
-/gradle/wrapper/gradle-wrapper.jar
-/gradlew
-/gradlew.bat

@@ -169,6 +169,28 @@ object SensorDiscovery {
         null
     }
 
+    /**
+     * Rewrites a device's "/app" payload with just its "group_order" field
+     * updated - everything else (name, group, labels, panels, controls,
+     * etc.) passes through completely unchanged. Used when a cluster
+     * reorder shifts a device's relative position among its siblings within
+     * the same group, so the retained config a device's own firmware/script
+     * might later republish doesn't quietly revert the new arrangement.
+     * Returns null if the payload isn't a JSON object.
+     */
+    fun updateGroupOrderInAppPayload(currentPayload: String, newGroupOrder: Int): String? = try {
+        val obj = Json.parseToJsonElement(currentPayload) as? JsonObject
+        if (obj == null) {
+            null
+        } else {
+            val mutableFields = obj.toMutableMap()
+            mutableFields["group_order"] = JsonPrimitive(newGroupOrder)
+            Json.encodeToString(JsonElement.serializer(), JsonObject(mutableFields))
+        }
+    } catch (_: Exception) {
+        null
+    }
+
     /** Parses a "<topic>/app" payload into a DeviceAppConfig, or null if it doesn't look like one. */
     fun parseDeviceAppConfig(payload: String): DeviceAppConfig? = try {
         val obj = Json.parseToJsonElement(payload) as? JsonObject

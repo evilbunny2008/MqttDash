@@ -140,6 +140,42 @@ class ConfigRepository(private val context: Context) {
         cfg.copy(groups = updatedGroups)
     }
 
+    /**
+     * Reassigns displayOrder for every panel in a group so its clusters end
+     * up in the order given by [orderedClusterKeys] - each key matching a
+     * cluster's clusterName, or "__single__<panelId>" for a standalone panel
+     * with no cluster name (the same convention HomeScreen uses to group
+     * panels into clusters for display). Panels *within* each cluster keep
+     * their existing relative order - only which cluster comes before which
+     * changes. Uses a generous step (1000) between clusters' base values, so
+     * there's room for within-cluster panel reordering later without ever
+     * needing to renumber a neighbouring cluster.
+     */
+    fun reorderClustersInGroup(groupId: String, orderedClusterKeys: List<String>) = update { cfg ->
+        val updatedGroups = cfg.groups.map { g ->
+            if (g.id != groupId) return@map g
+            val panelsByCluster = g.panels.groupBy { it.clusterName.ifBlank { "__single__${it.id}" } }
+            val newOrderByPanelId = mutableMapOf<String, Int>()
+            orderedClusterKeys.forEachIndexed { clusterIndex, clusterKey ->
+                val clusterPanels = panelsByCluster[clusterKey] ?: return@forEachIndexed
+                val sortedPanels = clusterPanels.sortedBy { it.displayOrder }
+                val base = clusterIndex * 1000
+                sortedPanels.forEachIndexed { withinIndex, panel ->
+                    newOrderByPanelId[panel.id] = base + withinIndex
+                }
+            }
+            g.copy(panels = g.panels.map { panel ->
+                val newOrder = newOrderByPanelId[panel.id] ?: return@map panel
+                when (panel) {
+                    is Panel.Sensor -> panel.copy(displayOrder = newOrder)
+                    is Panel.Toggle -> panel.copy(displayOrder = newOrder)
+                    is Panel.Button -> panel.copy(displayOrder = newOrder)
+                }
+            })
+        }
+        cfg.copy(groups = updatedGroups)
+    }
+
     fun addPanelToGroup(groupId: String, panel: Panel) = update { cfg ->
         cfg.copy(groups = cfg.groups.map { g ->
             if (g.id == groupId) g.copy(panels = g.panels + panel) else g
