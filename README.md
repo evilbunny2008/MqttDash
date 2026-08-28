@@ -42,7 +42,7 @@ Watches every incoming MQTT payload, across every topic, for a `"smoke": true`
 field - no per-device registration needed. Posts a high-priority notification
 (with an optional loud, alarm-style sound) the moment any topic's smoke state
 transitions to true, and clears it automatically once smoke is no longer
-reported. Both the alert and the sound can be turned off independently from
+reported. Both the alert and the sound can be turned off independent of
 their own Alarm/Alert screen (Settings), which also has a test button that
 fires a real notification (and sound, if enabled) so you can confirm it'll
 actually get your attention before you need it to.

@@ -684,6 +684,7 @@ private fun pushGroupOrderUpdatesForClusters(
 }
 
 /** Renders a bordered card containing every panel in [panels] ([columns] per row), with [name] as a caption below. */
+@Suppress("SameParameterValue")
 @Composable
 private fun ClusterCard(
     name: String,

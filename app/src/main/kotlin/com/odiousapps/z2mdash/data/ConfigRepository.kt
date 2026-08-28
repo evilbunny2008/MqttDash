@@ -84,6 +84,7 @@ class ConfigRepository(private val context: Context) {
     }
 
     /** Moves a group earlier (offset -1) or later (offset +1) in the display order. */
+    @Suppress("unused")
     fun moveGroup(groupId: String, offset: Int) = update { cfg ->
         val index = cfg.groups.indexOfFirst { it.id == groupId }
         if (index < 0) return@update cfg
