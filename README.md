@@ -40,8 +40,10 @@ Watches every incoming MQTT payload, across every topic, for a `"smoke": true`
 field - no per-device registration needed. Posts a high-priority notification
 (with an optional loud, alarm-style sound) the moment any topic's smoke state
 transitions to true, and clears it automatically once smoke is no longer
-reported. Both the alert and the sound can be turned off independently in
-Settings.
+reported. Both the alert and the sound can be turned off independently from
+their own Alarm/Alert screen (Settings), which also has a test button that
+fires a real notification (and sound, if enabled) so you can confirm it'll
+actually get your attention before you need it to.
 
 ### Terminal
 A live, filterable log of every MQTT message across all configured brokers -
@@ -49,11 +51,23 @@ useful for debugging payloads and topic structures without a separate MQTT
 client.
 
 ### Backup & restore
-- Export/import the whole configuration as a single gzip-compressed JSON file
+Its own screen (Settings > Backup & Restore), separate for export and restore:
+- Export/import the whole configuration, or just the brokers list on its own
+  (for moving connection details between devices without touching groups or
+  panels), as a single gzip-compressed JSON file
+- A restore can replace the whole configuration, or - independently of how
+  the file was originally exported - merge in just its brokers (matched by
+  id: updates existing ones, adds new ones, leaves the rest of your setup
+  untouched)
+- Full-configuration exports can optionally be encrypted (AES-256-GCM) using
+  one of your broker's own passwords, rather than a separate password to
+  remember - restoring auto-detects an encrypted file and prompts for the
+  password before decrypting
 - Publish/restore a backup via a retained MQTT message instead, for
-  moving configuration between devices without a file transfer
-- A restore can optionally preserve the brokers already configured on this
-  device rather than overwriting them too
+  moving configuration between devices without a file transfer - since that
+  path never includes brokers in the backup at all, restoring from it always
+  preserves whatever brokers are already configured on this device rather
+  than needing to import them separately
 
 ### Brokers & connections
 - Multiple brokers, each over TCP, SSL, WS, or WSS (including self-signed
