@@ -49,6 +49,19 @@ class SmokeAlertManager(
         }
     }
 
+    /**
+     * Fires a real notification (and sound, if the sound setting is
+     * currently enabled) using the exact same underlying logic as a genuine
+     * smoke alert - so tapping a "test" button actually verifies the
+     * notification/sound work, rather than just simulating what they'd look
+     * like. Uses a dedicated key rather than any real topic, so it never
+     * touches topicsInAlarm tracking for actual devices.
+     */
+    fun triggerTestAlert() {
+        val playSound = configRepository.config.value.smokeAlertSoundEnabled
+        notifySmokeDetected(TEST_ALERT_KEY, playSound, isTest = true)
+    }
+
     private fun checkForSmoke(payloads: Map<String, String>) {
         val config = configRepository.config.value
 
@@ -84,7 +97,7 @@ class SmokeAlertManager(
         }
     }
 
-    private fun notifySmokeDetected(compositeKey: String, playSound: Boolean) {
+    private fun notifySmokeDetected(compositeKey: String, playSound: Boolean, isTest: Boolean = false) {
         val topic = compositeKey.substringAfter('|')
         val deviceName = topic.substringAfterLast("/")
 
@@ -101,9 +114,15 @@ class SmokeAlertManager(
         // standard, reliable way to make a "play sound" toggle actually work
         // without needing to delete and recreate channels.
         val channelId = if (playSound) CHANNEL_ID_SOUND else CHANNEL_ID_SILENT
+        val title = if (isTest) "Test alert" else "Smoke detected!"
+        val text = if (isTest) {
+            "This is what a smoke alert notification looks like"
+        } else {
+            "$deviceName reported smoke \u2013 tap to open Z2M Dash"
+        }
         val notification = NotificationCompat.Builder(context, channelId)
-            .setContentTitle("Smoke detected!")
-            .setContentText("$deviceName reported smoke \u2013 tap to open Z2M Dash")
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -159,5 +178,6 @@ class SmokeAlertManager(
     companion object {
         private const val CHANNEL_ID_SOUND = "smoke_alert_sound"
         private const val CHANNEL_ID_SILENT = "smoke_alert_silent"
+        private const val TEST_ALERT_KEY = "test|Z2mDash test alert"
     }
 }
