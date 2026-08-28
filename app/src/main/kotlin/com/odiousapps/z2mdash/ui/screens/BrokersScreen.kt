@@ -1,6 +1,7 @@
 package com.odiousapps.z2mdash.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,8 +67,13 @@ fun BrokersScreen(navController: NavController) {
                     headlineContent = { Text(broker.name) },
                     supportingContent = { Text("${broker.host}:${broker.port} \u00b7 ${broker.protocol} \u00b7 $state") },
                     trailingContent = {
-                        IconButton(onClick = { navController.navigate("discover/${broker.id}") }) {
-                            Icon(Icons.Default.Search, contentDescription = "Discover sensors on ${broker.name}")
+                        Row {
+                            IconButton(onClick = { app.connectionManager.reconnect(broker.id) }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Reconnect to ${broker.name}")
+                            }
+                            IconButton(onClick = { navController.navigate("discover/${broker.id}") }) {
+                                Icon(Icons.Default.Search, contentDescription = "Discover sensors on ${broker.name}")
+                            }
                         }
                     },
                     modifier = Modifier.clickable { navController.navigate("broker/${broker.id}") }

@@ -210,9 +210,4 @@ class MqttConnectionManager(
             connect()
         }
     }
-
-    fun shutdown() {
-        connections.values.forEach { it.disconnect() }
-        connections.clear()
-    }
 }
