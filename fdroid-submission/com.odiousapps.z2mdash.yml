@@ -11,14 +11,14 @@ RepoType: git
 Repo: https://github.com/evilbunny2008/Z2mDash.git
 
 Builds:
-  - versionName: 0.0.9
-    versionCode: 9
-    commit: v0.0.9
+  - versionName: 0.0.10
+    versionCode: 10
+    commit: v0.0.10
     subdir: app
     gradle:
       - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.0.9
-CurrentVersionCode: 9
+CurrentVersion: 0.0.10
+CurrentVersionCode: 10
