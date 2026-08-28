@@ -378,6 +378,8 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             onDragEnd = {
                                                                 val fromKey = draggedClusterKey
                                                                 val toKey = draggedToClusterKey
+                                                                val tag = "Z2mDash-ClusterDrag"
+                                                                Log.d(tag, "onDragEnd: fromKey=$fromKey toKey=$toKey")
                                                                 if (fromKey != null && toKey != null && fromKey != toKey) {
                                                                     // Read fresh from the live config here, rather than
                                                                     // closing over the composable-scope orderedClusters/
@@ -397,15 +399,25 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                                         val currentOrder = panelsByClusterKey.entries
                                                                             .sortedBy { (_, ps) -> ps.minOf { it.displayOrder } }
                                                                             .map { (key, _) -> key }
+                                                                        val displayOrdersByCluster = panelsByClusterKey.mapValues { (_, ps) ->
+                                                                            ps.map { it.displayOrder }
+                                                                        }
+                                                                        Log.d(tag, "currentOrder=$currentOrder")
+                                                                        Log.d(tag, "displayOrdersByCluster=$displayOrdersByCluster")
+                                                                        Log.d(tag, "clusterCenters=$clusterCenters")
                                                                         val fromIndex = currentOrder.indexOf(fromKey)
                                                                         val toIndex = currentOrder.indexOf(toKey)
+                                                                        Log.d(tag, "fromIndex=$fromIndex toIndex=$toIndex")
                                                                         if (fromIndex >= 0 && toIndex >= 0) {
                                                                             val reordered = currentOrder.toMutableList()
                                                                             reordered.removeAt(fromIndex)
                                                                             reordered.add(toIndex, fromKey)
+                                                                            Log.d(tag, "committing reordered=$reordered")
                                                                             app.configRepository.reorderClustersInGroup(group.id, reordered)
                                                                             pushGroupOrderUpdatesForClusters(app, reordered, currentGroup.panels)
                                                                         }
+                                                                    } else {
+                                                                        Log.w(tag, "currentGroup not found for group.id=${group.id}")
                                                                     }
                                                                 }
                                                                 draggedClusterKey = null
