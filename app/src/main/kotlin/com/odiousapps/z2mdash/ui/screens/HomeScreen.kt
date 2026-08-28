@@ -696,7 +696,16 @@ private fun ClusterCard(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = captionRowModifier) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // fillMaxWidth so the whole caption bar is a touch target for
+                // the drag, not just the width of the name/age text itself -
+                // otherwise a long-press anywhere else along this row (which
+                // is naturally where someone would try "holding the
+                // cluster") lands outside the row's actual bounds and never
+                // reaches the gesture detector at all.
+                modifier = captionRowModifier.fillMaxWidth()
+            ) {
                 Text(name, style = MaterialTheme.typography.titleSmall)
                 if (ageText != null) {
                     Text(
