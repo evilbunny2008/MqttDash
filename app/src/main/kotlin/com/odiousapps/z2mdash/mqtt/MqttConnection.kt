@@ -109,7 +109,14 @@ class MqttConnection(private val broker: Broker) {
                 .trustManagerFactory(SslUtils.trustManagerFactoryFromCertBase64(certBase64))
                 .applySslConfig()
         } else {
-            builder.sslWithDefaultConfig()
+            // sslWithDefaultConfig() mutates builder in place and returns the
+            // same (@CheckReturnValue-annotated) builder for chaining - not
+            // a separate object that needs capturing, same as the
+            // sslConfig()...applySslConfig() chain above, which also never
+            // reassigns builder and already works correctly. .let{} here
+            // just explicitly consumes the return value to satisfy that
+            // check, without changing behaviour.
+            builder.sslWithDefaultConfig().let { }
         }
     }
 
