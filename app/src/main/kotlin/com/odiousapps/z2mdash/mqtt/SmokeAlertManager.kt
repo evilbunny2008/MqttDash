@@ -7,11 +7,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
+import com.odiousapps.z2mdash.R
 import com.odiousapps.z2mdash.data.ConfigRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -153,15 +154,19 @@ class SmokeAlertManager(
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        val alarmSoundUri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        // A custom smoke-alarm sound (res/raw/smoke_alarm.wav) rather than the
+        // device's default alarm ringtone, so this notification is instantly
+        // distinguishable from any other alarm going off. Referenced via the
+        // android.resource:// scheme, the standard way to point a
+        // NotificationChannel's sound at an app-bundled raw resource.
+        val alarmSoundUri = "android.resource://${context.packageName}/${R.raw.smoke_alarm}".toUri()
 
         val soundChannel = NotificationChannel(
             CHANNEL_ID_SOUND, "Smoke alerts (with sound)", NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Alerts when a device reports smoke detected, with an alarm-style sound"
             enableVibration(true)
-            if (alarmSoundUri != null) setSound(alarmSoundUri, alarmAttributes)
+            setSound(alarmSoundUri, alarmAttributes)
         }
         val silentChannel = NotificationChannel(
             CHANNEL_ID_SILENT, "Smoke alerts (silent)", NotificationManager.IMPORTANCE_HIGH

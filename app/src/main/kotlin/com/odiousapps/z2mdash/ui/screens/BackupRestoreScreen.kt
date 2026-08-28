@@ -120,7 +120,7 @@ fun BackupRestoreScreen(navController: NavController) {
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/gzip")
     ) { uri: Uri? ->
-        uri?.let {
+        uri?.let { it ->
             val json = if (exportScope == "BrokersOnly") {
                 app.configRepository.exportBrokersOnlyJson()
             } else {

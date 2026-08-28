@@ -153,9 +153,9 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
     // rows in the old dedicated Groups screen, each group here can be a
     // wildly different height depending on how many clusters/panels it has
     // and whether it's collapsed, so a uniform "row height" division
-    // wouldn't work. Instead this reuses the same position-based
+    // wouldn't work. Instead, this reuses the same position-based
     // nearest-match approach as cluster dragging: each group's own measured
-    // center point (via onGloballyPositioned), compared against the current
+    // centre point (via onGloballyPositioned), compared against the current
     // drag position, re-read fresh at both onDrag and onDragEnd rather than
     // relying on a value fixed once at drag-start.
     var draggedGroupId by remember { mutableStateOf<String?>(null) }
@@ -355,8 +355,8 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                         // columns, clusters can sit side by side within a packed row, so
                         // "which cluster is the drag currently over" is tracked by comparing
                         // the current absolute drag position against each cluster's own
-                        // last-known center point (updated via onGloballyPositioned), rather
-                        // than computing a row/column index delta - a position-based nearest-
+                        // last-known centre point (updated via onGloballyPositioned), rather
+                        // than computing a row/column index delta - a position-based nearest
                         // match handles the irregular, width-based row-packing correctly
                         // whether the target is directly below, or beside, the dragged
                         // cluster. Standalone tiles (no clusterName) aren't individually
@@ -366,7 +366,7 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                         var draggedToClusterKey by remember(group.id) { mutableStateOf<String?>(null) }
                         // Tracks only the raw, accumulated finger movement since the drag
                         // started - deliberately NOT combined with the dragged cluster's
-                        // starting center point up front. clusterCenters[key] is re-read
+                        // starting centre point up front. clusterCenters[key] is re-read
                         // fresh on every single onDrag call below instead, so if it was
                         // still momentarily stale at drag-start (Compose's relayout after
                         // the previous reorder hadn't fully caught up yet) and then
@@ -469,7 +469,7 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                     isClusterDropTarget = draggedClusterKey != null &&
                                                         draggedClusterKey != name &&
                                                         draggedToClusterKey == name,
-                                                    cardModifier = Modifier.onGloballyPositioned { coordinates ->
+                                                    modifier = Modifier.onGloballyPositioned { coordinates ->
                                                         val topLeft = coordinates.positionInWindow()
                                                         clusterCenters[name] = Offset(
                                                             topLeft.x + coordinates.size.width / 2f,
@@ -702,7 +702,7 @@ private fun ClusterCard(
     // threaded in here, same pattern as how each panel tile receives its own
     // drag detector via an externally-built modifier rather than owning that
     // logic itself.
-    cardModifier: Modifier = Modifier,
+    modifier: Modifier = Modifier,
     captionRowModifier: Modifier = Modifier,
     isDraggingCluster: Boolean = false,
     isClusterDropTarget: Boolean = false
@@ -768,7 +768,7 @@ private fun ClusterCard(
     var tileHeightPx by remember { mutableFloatStateOf(0f) }
 
     Surface(
-        modifier = cardModifier
+        modifier = modifier
             .alpha(if (isDraggingCluster) 0.5f else 1f)
             .then(
                 if (isClusterDropTarget) {
