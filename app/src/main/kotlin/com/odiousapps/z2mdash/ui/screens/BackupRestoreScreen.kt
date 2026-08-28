@@ -244,7 +244,7 @@ fun BackupRestoreScreen(navController: NavController) {
                         leadingContent = { Icon(Icons.Default.Backup, contentDescription = null) },
                         modifier = Modifier.clickable {
                             try {
-                                exportLauncher.launch(BackupCodec.newBackupFileName())
+                                exportLauncher.launch(BackupCodec.newBackupFileName(brokersOnly = exportScope == "BrokersOnly"))
                             } catch (_: ActivityNotFoundException) {
                                 snackbarMessage = "No file picker app is available on this device."
                             }

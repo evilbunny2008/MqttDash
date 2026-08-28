@@ -35,8 +35,11 @@ object BackupCodec {
     /** A new "<baseTopic>/<timestamp>" topic for a fresh backup, e.g. "z2mdash/backup/2026-08-24_01-45-30". */
     fun newBackupTopic(baseTopic: String): String = "${baseTopic.trim().trim('/')}/${currentTimestamp()}"
 
-    /** A timestamped filename for a fresh file backup, e.g. "z2mdash-config-2026-08-24_01-45-30.json.gz". */
-    fun newBackupFileName(): String = "z2mdash-config-${currentTimestamp()}.json.gz"
+    /** A timestamped filename for a fresh file backup, e.g. "z2mdash-config-2026-08-24_01-45-30.json.gz" - or, when [brokersOnly] is true, "z2mdash-config-brokers-only-2026-08-24_01-45-30.json.gz", so a restore later doesn't have to be opened/inspected just to tell which kind of backup it is. */
+    fun newBackupFileName(brokersOnly: Boolean = false): String {
+        val scopeSuffix = if (brokersOnly) "-brokers-only" else ""
+        return "z2mdash-config$scopeSuffix-${currentTimestamp()}.json.gz"
+    }
 
     /** Parses the trailing "<timestamp>" segment of a backup topic back into a display-friendly string, or null if it doesn't match. */
     fun displayTimestamp(backupTopic: String): String? {
