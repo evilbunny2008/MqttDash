@@ -394,7 +394,7 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                                             reordered.removeAt(fromIndex)
                                                                             reordered.add(toIndex, fromKey)
                                                                             app.configRepository.reorderClustersInGroup(group.id, reordered)
-                                                                            pushGroupOrderUpdatesForClusters(app, payloads, reordered, currentGroup.panels)
+                                                                            pushGroupOrderUpdatesForClusters(app, reordered, currentGroup.panels)
                                                                         }
                                                                     }
                                                                 }
@@ -466,14 +466,23 @@ private data class PendingClusterDelete(val groupId: String, val name: String, v
  * device's own config topic stays in sync with a manual reorder - otherwise,
  * a future republish of that topic (for an unrelated reason) would rebuild
  * the panels using the device's original order, silently undoing this.
+ *
+ * Deliberately reads app.connectionManager.latestPayloads.value directly
+ * (a StateFlow's current value) rather than accepting a payloads parameter -
+ * this is called from inside a pointerInput block that only launches once
+ * per panel tile, so a parameter passed in from the composable scope would
+ * be captured at that first launch and go stale on every call after,
+ * potentially rewriting the /app payload from an outdated base and then
+ * having that stale republish silently overwrite a subsequent, correct
+ * reorder once the app's own auto-config reconciliation re-consumes it.
  */
 private fun pushOrderUpdateIfAutoConfigured(
     app: Z2mDashApplication,
-    payloads: Map<String, String>,
     orderedPanelIds: List<String>,
     clusterPanels: List<Panel>
 ) {
     val config = app.configRepository.config.value
+    val payloads = app.connectionManager.latestPayloads.value
     val panelIdSet = orderedPanelIds.toSet()
     val device = config.autoConfiguredDevices.find { it.createdPanelIds.any { id -> id in panelIdSet } } ?: return
     val currentPayload = payloads["${device.brokerId}|${device.appConfigTopic}"] ?: return
@@ -497,14 +506,20 @@ private fun pushOrderUpdateIfAutoConfigured(
  * group, not just the one that was dragged - so every affected cluster that
  * belongs to an auto-configured device gets its own retained "/app" update
  * reflecting its new group_order, not just the dragged one.
+ *
+ * Same reasoning as pushOrderUpdateIfAutoConfigured above for reading
+ * app.connectionManager.latestPayloads.value directly rather than accepting
+ * a payloads parameter - this is called from inside a pointerInput block
+ * that only launches once per cluster card, so a captured parameter would
+ * go stale after the first launch.
  */
 private fun pushGroupOrderUpdatesForClusters(
     app: Z2mDashApplication,
-    payloads: Map<String, String>,
     orderedClusterKeys: List<String>,
     groupPanels: List<Panel>
 ) {
     val config = app.configRepository.config.value
+    val payloads = app.connectionManager.latestPayloads.value
     val panelsByCluster = groupPanels.groupBy { it.clusterName.ifBlank { "__single__${it.id}" } }
 
     orderedClusterKeys.forEachIndexed { index, clusterKey ->
@@ -669,13 +684,37 @@ private fun ClusterCard(
                                             onDragEnd = {
                                                 val fromIndex = draggedFromIndex
                                                 val toIndex = draggedToIndex
-                                                if (toIndex != fromIndex && fromIndex >= 0 && toIndex >= 0) {
-                                                    val reordered = panels.toMutableList()
-                                                    val moved = reordered.removeAt(fromIndex)
-                                                    reordered.add(toIndex, moved)
-                                                    val orderedIds = reordered.map { it.id }
-                                                    app.configRepository.reorderPanelsInCluster(groupId, orderedIds)
-                                                    pushOrderUpdateIfAutoConfigured(app, payloads, orderedIds, panels)
+                                                if (toIndex != fromIndex && fromIndex >= 0 && toIndex >= 0 && toIndex < panels.size) {
+                                                    val targetPanelId = panels[toIndex].id
+                                                    // Read fresh from the live config for the actual
+                                                    // commit, rather than relying purely on the
+                                                    // closure-captured `panels` list - this
+                                                    // pointerInput block only launches once per tile,
+                                                    // so that list would go stale exactly like the
+                                                    // cluster-level drag's equivalent bug. Resolving
+                                                    // both the dragged and target panels by *id*
+                                                    // (rather than trusting the drag's own index
+                                                    // bookkeeping, which was itself computed against
+                                                    // that same possibly-stale list) means a slightly
+                                                    // outdated starting point still resolves correctly
+                                                    // against whatever the panel list actually looks
+                                                    // like right now.
+                                                    val currentPanels = app.configRepository.config.value.groups
+                                                        .find { it.id == groupId }?.panels
+                                                        ?.filter { it.clusterName == name }
+                                                        ?.sortedBy { it.displayOrder }
+                                                    if (currentPanels != null) {
+                                                        val currentFromIndex = currentPanels.indexOfFirst { it.id == panel.id }
+                                                        val currentToIndex = currentPanels.indexOfFirst { it.id == targetPanelId }
+                                                        if (currentFromIndex >= 0 && currentToIndex >= 0 && currentFromIndex != currentToIndex) {
+                                                            val reordered = currentPanels.toMutableList()
+                                                            val moved = reordered.removeAt(currentFromIndex)
+                                                            reordered.add(currentToIndex, moved)
+                                                            val orderedIds = reordered.map { it.id }
+                                                            app.configRepository.reorderPanelsInCluster(groupId, orderedIds)
+                                                            pushOrderUpdateIfAutoConfigured(app, orderedIds, reordered)
+                                                        }
+                                                    }
                                                 }
                                                 draggedPanelId = null
                                                 draggedFromIndex = -1
