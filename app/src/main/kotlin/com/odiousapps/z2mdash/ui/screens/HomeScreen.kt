@@ -284,6 +284,22 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                         // onGloballyPositioned callback finally fires.
                         var totalDragOffset by remember(group.id) { mutableStateOf(Offset.Zero) }
                         val clusterCenters = remember(group.id) { mutableStateMapOf<String, Offset>() }
+                        // Shared by both onDrag (for live visual feedback) and onDragEnd
+                        // (for the actual commit) - critically, onDragEnd calls this itself
+                        // one final time with the freshest possible clusterCenters read,
+                        // rather than trusting whatever draggedToClusterKey was last set by
+                        // onDrag. A quick drag-and-release might only produce a handful of
+                        // onDrag callbacks, possibly not enough for a still-settling
+                        // clusterCenters entry to have self-corrected by the time the user
+                        // actually lifts their finger - recomputing at the exact moment of
+                        // release closes that remaining timing gap.
+                        fun computeNearestClusterKey(draggedKey: String): String? {
+                            val draggedBaseline = clusterCenters[draggedKey] ?: Offset.Zero
+                            val currentPosition = draggedBaseline + totalDragOffset
+                            return clusterCenters.entries
+                                .minByOrNull { (_, center) -> (center - currentPosition).getDistance() }
+                                ?.key
+                        }
 
                         // Manually pack clusters/tiles into rows rather than relying on
                         // FlowRow's own wrapping - computed directly against each item's
@@ -377,9 +393,16 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             },
                                                             onDragEnd = {
                                                                 val fromKey = draggedClusterKey
-                                                                val toKey = draggedToClusterKey
-                                                                val tag = "Z2mDash-ClusterDrag"
-                                                                Log.d(tag, "onDragEnd: fromKey=$fromKey toKey=$toKey")
+                                                                // Recomputed fresh, right here, rather than trusting
+                                                                // whatever onDrag last set draggedToClusterKey to - a
+                                                                // quick drag-and-release might only produce a
+                                                                // handful of onDrag callbacks, possibly not enough
+                                                                // for a still-settling clusterCenters entry (from
+                                                                // Compose's relayout after a previous reorder not
+                                                                // having fully caught up yet) to have self-corrected
+                                                                // by the exact moment the user actually lifts their
+                                                                // finger. This closes that remaining timing gap.
+                                                                val toKey = fromKey?.let { computeNearestClusterKey(it) }
                                                                 if (fromKey != null && toKey != null && fromKey != toKey) {
                                                                     // Read fresh from the live config here, rather than
                                                                     // closing over the composable-scope orderedClusters/
@@ -399,25 +422,15 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                                         val currentOrder = panelsByClusterKey.entries
                                                                             .sortedBy { (_, ps) -> ps.minOf { it.displayOrder } }
                                                                             .map { (key, _) -> key }
-                                                                        val displayOrdersByCluster = panelsByClusterKey.mapValues { (_, ps) ->
-                                                                            ps.map { it.displayOrder }
-                                                                        }
-                                                                        Log.d(tag, "currentOrder=$currentOrder")
-                                                                        Log.d(tag, "displayOrdersByCluster=$displayOrdersByCluster")
-                                                                        Log.d(tag, "clusterCenters=$clusterCenters")
                                                                         val fromIndex = currentOrder.indexOf(fromKey)
                                                                         val toIndex = currentOrder.indexOf(toKey)
-                                                                        Log.d(tag, "fromIndex=$fromIndex toIndex=$toIndex")
                                                                         if (fromIndex >= 0 && toIndex >= 0) {
                                                                             val reordered = currentOrder.toMutableList()
                                                                             reordered.removeAt(fromIndex)
                                                                             reordered.add(toIndex, fromKey)
-                                                                            Log.d(tag, "committing reordered=$reordered")
                                                                             app.configRepository.reorderClustersInGroup(group.id, reordered)
                                                                             pushGroupOrderUpdatesForClusters(app, reordered, currentGroup.panels)
                                                                         }
-                                                                    } else {
-                                                                        Log.w(tag, "currentGroup not found for group.id=${group.id}")
                                                                     }
                                                                 }
                                                                 draggedClusterKey = null
@@ -430,19 +443,7 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             onDrag = { change, dragAmount ->
                                                                 change.consume()
                                                                 totalDragOffset += dragAmount
-                                                                // Re-read the dragged cluster's own baseline
-                                                                // position fresh on every call, rather than
-                                                                // fixing it once at drag-start - if it was
-                                                                // still momentarily stale when the drag began,
-                                                                // this picks up the correction automatically
-                                                                // on the very next call instead of the
-                                                                // "nearest cluster" match jumping when it
-                                                                // finally catches up mid-drag.
-                                                                val draggedBaseline = clusterCenters[name] ?: Offset.Zero
-                                                                val currentPosition = draggedBaseline + totalDragOffset
-                                                                draggedToClusterKey = clusterCenters.entries
-                                                                    .minByOrNull { (_, center) -> (center - currentPosition).getDistance() }
-                                                                    ?.key
+                                                                draggedToClusterKey = computeNearestClusterKey(name)
                                                             }
                                                         )
                                                     }

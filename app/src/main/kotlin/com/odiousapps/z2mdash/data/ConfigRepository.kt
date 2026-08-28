@@ -1,7 +1,6 @@
 package com.odiousapps.z2mdash.data
 
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -156,22 +155,15 @@ class ConfigRepository(private val context: Context) {
         val updatedGroups = cfg.groups.map { g ->
             if (g.id != groupId) return@map g
             val panelsByCluster = g.panels.groupBy { it.clusterName.ifBlank { "__single__${it.id}" } }
-            Log.d("Z2mDash-ClusterDrag", "reorderClustersInGroup: orderedClusterKeys=$orderedClusterKeys " +
-                "panelsByCluster.keys=${panelsByCluster.keys}")
             val newOrderByPanelId = mutableMapOf<String, Int>()
             orderedClusterKeys.forEachIndexed { clusterIndex, clusterKey ->
-                val clusterPanels = panelsByCluster[clusterKey]
-                if (clusterPanels == null) {
-                    Log.w("Z2mDash-ClusterDrag", "reorderClustersInGroup: no panels found for clusterKey=$clusterKey - skipping")
-                    return@forEachIndexed
-                }
+                val clusterPanels = panelsByCluster[clusterKey] ?: return@forEachIndexed
                 val sortedPanels = clusterPanels.sortedBy { it.displayOrder }
                 val base = clusterIndex * 1000
                 sortedPanels.forEachIndexed { withinIndex, panel ->
                     newOrderByPanelId[panel.id] = base + withinIndex
                 }
             }
-            Log.d("Z2mDash-ClusterDrag", "reorderClustersInGroup: newOrderByPanelId=$newOrderByPanelId")
             g.copy(panels = g.panels.map { panel ->
                 val newOrder = newOrderByPanelId[panel.id] ?: return@map panel
                 when (panel) {
