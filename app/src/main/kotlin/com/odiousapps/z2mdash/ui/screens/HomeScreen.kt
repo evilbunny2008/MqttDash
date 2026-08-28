@@ -369,17 +369,33 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                                 val fromKey = draggedClusterKey
                                                                 val toKey = draggedToClusterKey
                                                                 if (fromKey != null && toKey != null && fromKey != toKey) {
-                                                                    val currentOrder = orderedClusters.map {
-                                                                        it.first().clusterName.ifBlank { "__single__${it.first().id}" }
-                                                                    }
-                                                                    val fromIndex = currentOrder.indexOf(fromKey)
-                                                                    val toIndex = currentOrder.indexOf(toKey)
-                                                                    if (fromIndex >= 0 && toIndex >= 0) {
-                                                                        val reordered = currentOrder.toMutableList()
-                                                                        reordered.removeAt(fromIndex)
-                                                                        reordered.add(toIndex, fromKey)
-                                                                        app.configRepository.reorderClustersInGroup(group.id, reordered)
-                                                                        pushGroupOrderUpdatesForClusters(app, payloads, reordered, group.panels)
+                                                                    // Read fresh from the live config here, rather than
+                                                                    // closing over the composable-scope orderedClusters/
+                                                                    // group - this pointerInput block only launches once
+                                                                    // per cluster card (keyed on its own name, which
+                                                                    // rarely changes), so a captured value would stay
+                                                                    // frozen at whatever it was during that very first
+                                                                    // launch, silently going stale as later
+                                                                    // recompositions (e.g. from ongoing MQTT traffic)
+                                                                    // moved on without it - the same class of bug fixed
+                                                                    // earlier for the Terminal screen's message list.
+                                                                    val currentGroup = app.configRepository.config.value
+                                                                        .groups.find { it.id == group.id }
+                                                                    if (currentGroup != null) {
+                                                                        val panelsByClusterKey = currentGroup.panels
+                                                                            .groupBy { it.clusterName.ifBlank { "__single__${it.id}" } }
+                                                                        val currentOrder = panelsByClusterKey.entries
+                                                                            .sortedBy { (_, ps) -> ps.minOf { it.displayOrder } }
+                                                                            .map { (key, _) -> key }
+                                                                        val fromIndex = currentOrder.indexOf(fromKey)
+                                                                        val toIndex = currentOrder.indexOf(toKey)
+                                                                        if (fromIndex >= 0 && toIndex >= 0) {
+                                                                            val reordered = currentOrder.toMutableList()
+                                                                            reordered.removeAt(fromIndex)
+                                                                            reordered.add(toIndex, fromKey)
+                                                                            app.configRepository.reorderClustersInGroup(group.id, reordered)
+                                                                            pushGroupOrderUpdatesForClusters(app, payloads, reordered, currentGroup.panels)
+                                                                        }
                                                                     }
                                                                 }
                                                                 draggedClusterKey = null
