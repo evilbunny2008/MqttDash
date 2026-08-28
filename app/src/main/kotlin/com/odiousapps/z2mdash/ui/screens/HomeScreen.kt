@@ -272,7 +272,17 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                         // correctly in the underlying displayOrder sequence either way.
                         var draggedClusterKey by remember(group.id) { mutableStateOf<String?>(null) }
                         var draggedToClusterKey by remember(group.id) { mutableStateOf<String?>(null) }
-                        var dragCurrentPosition by remember(group.id) { mutableStateOf(Offset.Zero) }
+                        // Tracks only the raw, accumulated finger movement since the drag
+                        // started - deliberately NOT combined with the dragged cluster's
+                        // starting center point up front. clusterCenters[key] is re-read
+                        // fresh on every single onDrag call below instead, so if it was
+                        // still momentarily stale at drag-start (Compose's relayout after
+                        // the previous reorder hadn't fully caught up yet) and then
+                        // corrects itself mid-drag, the next onDrag call picks up the
+                        // corrected baseline automatically rather than the whole
+                        // "nearest cluster" calculation suddenly jumping when a late
+                        // onGloballyPositioned callback finally fires.
+                        var totalDragOffset by remember(group.id) { mutableStateOf(Offset.Zero) }
                         val clusterCenters = remember(group.id) { mutableStateMapOf<String, Offset>() }
 
                         // Manually pack clusters/tiles into rows rather than relying on
@@ -363,7 +373,7 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             onDragStart = {
                                                                 draggedClusterKey = name
                                                                 draggedToClusterKey = name
-                                                                dragCurrentPosition = clusterCenters[name] ?: Offset.Zero
+                                                                totalDragOffset = Offset.Zero
                                                             },
                                                             onDragEnd = {
                                                                 val fromKey = draggedClusterKey
@@ -407,9 +417,19 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                                             },
                                                             onDrag = { change, dragAmount ->
                                                                 change.consume()
-                                                                dragCurrentPosition += dragAmount
+                                                                totalDragOffset += dragAmount
+                                                                // Re-read the dragged cluster's own baseline
+                                                                // position fresh on every call, rather than
+                                                                // fixing it once at drag-start - if it was
+                                                                // still momentarily stale when the drag began,
+                                                                // this picks up the correction automatically
+                                                                // on the very next call instead of the
+                                                                // "nearest cluster" match jumping when it
+                                                                // finally catches up mid-drag.
+                                                                val draggedBaseline = clusterCenters[name] ?: Offset.Zero
+                                                                val currentPosition = draggedBaseline + totalDragOffset
                                                                 draggedToClusterKey = clusterCenters.entries
-                                                                    .minByOrNull { (_, center) -> (center - dragCurrentPosition).getDistance() }
+                                                                    .minByOrNull { (_, center) -> (center - currentPosition).getDistance() }
                                                                     ?.key
                                                             }
                                                         )
