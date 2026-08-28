@@ -17,7 +17,9 @@ JSON file you can export and re-import or auto-configure settings stored in MQTT
   and "presence" conventions, shown as "Detected"/"Clear" with a tinted icon
   rather than a raw true/false
 - Drag-and-drop reordering for groups, clusters within a group, and panels
-  within a cluster (long-press to start dragging)
+  within a cluster (long-press to start dragging) - group reordering and
+  renaming both happen directly on the dashboard via each group's own
+  header, no separate screen needed
 - Groups can be collapsed/expanded, and deleted along with their panels
 - New-device and new-cluster prompts (see Auto-configure below) show as
   banners on the dashboard as well as system notifications
@@ -77,7 +79,9 @@ Its own screen (Settings > Backup & Restore), separate for export and restore:
   typically retained, this isn't strictly required for correctness, just for
   live updates while backgrounded
 - Manual sensor discovery, scanning a broker's traffic for numeric fields to
-  help build panels for devices that don't publish their own `/app` config
+  help build panels for devices that don't publish their own `/app` config -
+  launched per-broker (from that broker's row in Settings > Brokers), since
+  you may only want to scan one specific broker rather than every one at once
 
 ## Only tested using Zigbee2MQTT
 
