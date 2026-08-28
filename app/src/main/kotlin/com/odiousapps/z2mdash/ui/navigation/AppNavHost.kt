@@ -23,6 +23,7 @@ import com.odiousapps.z2mdash.ui.screens.AddEditBrokerScreen
 import com.odiousapps.z2mdash.ui.screens.AddGroupScreen
 import com.odiousapps.z2mdash.ui.screens.AddPanelScreen
 import com.odiousapps.z2mdash.ui.screens.AlertSettingsScreen
+import com.odiousapps.z2mdash.ui.screens.BackupRestoreScreen
 import com.odiousapps.z2mdash.ui.screens.BrokersScreen
 import com.odiousapps.z2mdash.ui.screens.DiscoverScreen
 import com.odiousapps.z2mdash.ui.screens.GroupsScreen
@@ -78,6 +79,7 @@ fun AppNavHost() {
             composable("terminal") { TerminalScreen() }
             composable("settings") { SettingsScreen(navController) }
             composable("alertSettings") { AlertSettingsScreen(navController) }
+            composable("backupRestore") { BackupRestoreScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
             composable("discover") { DiscoverScreen(navController) }
             composable("discover/{brokerId}") { entry ->

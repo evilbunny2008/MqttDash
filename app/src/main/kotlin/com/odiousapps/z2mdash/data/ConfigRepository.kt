@@ -293,10 +293,34 @@ class ConfigRepository(private val context: Context) {
         return json.encodeToString(AppConfig.serializer(), toExport)
     }
 
+    /** Exports just the brokers list - everything else (groups, panels, auto-config state) is left out entirely, for a backup scoped to connection details only. */
+    fun exportBrokersOnlyJson(): String {
+        val brokersOnly = AppConfig(brokers = _config.value.brokers)
+        return json.encodeToString(AppConfig.serializer(), brokersOnly)
+    }
+
     fun importJson(text: String) {
         val imported = json.decodeFromString(AppConfig.serializer(), text)
         persist(imported)
         _config.value = imported
+    }
+
+    /**
+     * For restoring a brokers-only backup: only the brokers list changes,
+     * everything else (groups, panels, auto-config state) stays exactly as
+     * it is. Brokers are matched/merged by id - an imported broker with the
+     * same id as an existing one replaces it, brokers with new ids are
+     * added, and existing brokers not mentioned in the import are left
+     * untouched rather than being removed.
+     */
+    fun importBrokersOnlyJson(text: String) {
+        val imported = json.decodeFromString(AppConfig.serializer(), text)
+        val importedById = imported.brokers.associateBy { it.id }
+        val mergedBrokers = _config.value.brokers.map { existing -> importedById[existing.id] ?: existing } +
+            imported.brokers.filter { it.id !in _config.value.brokers.map { b -> b.id } }
+        val merged = _config.value.copy(brokers = mergedBrokers)
+        persist(merged)
+        _config.value = merged
     }
 
     /**
