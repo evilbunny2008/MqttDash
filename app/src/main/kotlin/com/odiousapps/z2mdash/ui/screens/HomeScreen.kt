@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
@@ -32,6 +33,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -143,6 +145,30 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
 
     var pendingGroupDelete by remember { mutableStateOf<String?>(null) }
     var pendingClusterDelete by remember { mutableStateOf<PendingClusterDelete?>(null) }
+    var renamingGroup by remember { mutableStateOf<PanelGroup?>(null) }
+    var renameText by remember { mutableStateOf("") }
+
+    // Group drag-to-reorder state, shared across every group on this screen -
+    // only one group can ever be dragged at a time. Unlike the fixed-height
+    // rows in the old dedicated Groups screen, each group here can be a
+    // wildly different height depending on how many clusters/panels it has
+    // and whether it's collapsed, so a uniform "row height" division
+    // wouldn't work. Instead this reuses the same position-based
+    // nearest-match approach as cluster dragging: each group's own measured
+    // center point (via onGloballyPositioned), compared against the current
+    // drag position, re-read fresh at both onDrag and onDragEnd rather than
+    // relying on a value fixed once at drag-start.
+    var draggedGroupId by remember { mutableStateOf<String?>(null) }
+    var draggedToGroupId by remember { mutableStateOf<String?>(null) }
+    var totalGroupDragOffset by remember { mutableStateOf(Offset.Zero) }
+    val groupCenters = remember { mutableStateMapOf<String, Offset>() }
+    fun computeNearestGroupKey(draggedId: String): String? {
+        val draggedBaseline = groupCenters[draggedId] ?: Offset.Zero
+        val currentPosition = draggedBaseline + totalGroupDragOffset
+        return groupCenters.entries
+            .minByOrNull { (_, center) -> (center - currentPosition).getDistance() }
+            ?.key
+    }
 
     // Standalone (non-clustered) panels, and panels inside a cluster card, both
     // lay out as an exact 3-column grid. Tile width is capped at a sensible
@@ -213,7 +239,27 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                 )
             }
             items(config.groups, key = { it.id }) { group ->
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                val isDraggingThisGroup = draggedGroupId == group.id
+                val isDropTargetGroup = draggedGroupId != null && draggedGroupId != group.id &&
+                    draggedToGroupId == group.id
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                        .onGloballyPositioned { coordinates ->
+                            val topLeft = coordinates.positionInWindow()
+                            groupCenters[group.id] = Offset(
+                                topLeft.x + coordinates.size.width / 2f,
+                                topLeft.y + coordinates.size.height / 2f
+                            )
+                        }
+                        .alpha(if (isDraggingThisGroup) 0.5f else 1f)
+                        .then(
+                            if (isDropTargetGroup) {
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                            } else {
+                                Modifier
+                            }
+                        )
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.Center,
@@ -221,7 +267,50 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                     ) {
                         Row(
                             modifier = Modifier.weight(1f)
-                                .clickable { app.configRepository.setGroupCollapsed(group.id, !group.collapsed) },
+                                .clickable { app.configRepository.setGroupCollapsed(group.id, !group.collapsed) }
+                                // Long-press starts a drag-to-reorder here, layered
+                                // alongside the tap-to-collapse clickable above -
+                                // the two are distinguishable by Compose's gesture
+                                // system since they sit on very different timing
+                                // thresholds (a quick tap vs. a sustained hold).
+                                .pointerInput(group.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggedGroupId = group.id
+                                            draggedToGroupId = group.id
+                                            totalGroupDragOffset = Offset.Zero
+                                        },
+                                        onDragEnd = {
+                                            val fromId = draggedGroupId
+                                            // Recomputed fresh, right here, rather than
+                                            // trusting whatever onDrag last set - see
+                                            // the same reasoning applied to cluster
+                                            // dragging: a quick drag-and-release might
+                                            // not produce enough onDrag callbacks for
+                                            // a still-settling position to have
+                                            // self-corrected by release time.
+                                            val toId = fromId?.let { computeNearestGroupKey(it) }
+                                            if (fromId != null && toId != null && fromId != toId) {
+                                                val currentGroups = app.configRepository.config.value.groups
+                                                val toIndex = currentGroups.indexOfFirst { it.id == toId }
+                                                if (toIndex >= 0) {
+                                                    app.configRepository.moveGroupToIndex(fromId, toIndex + 1)
+                                                }
+                                            }
+                                            draggedGroupId = null
+                                            draggedToGroupId = null
+                                        },
+                                        onDragCancel = {
+                                            draggedGroupId = null
+                                            draggedToGroupId = null
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            totalGroupDragOffset += dragAmount
+                                            draggedToGroupId = computeNearestGroupKey(group.id)
+                                        }
+                                    )
+                                },
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
@@ -231,6 +320,9 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                                 if (group.collapsed) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                                 contentDescription = null
                             )
+                        }
+                        IconButton(onClick = { renamingGroup = group; renameText = group.name }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Rename ${group.name}")
                         }
                         IconButton(onClick = { navController.navigate("group/${group.id}/panel/new") }) {
                             Icon(Icons.Default.Add, contentDescription = "Add panel to ${group.name}")
@@ -472,6 +564,31 @@ fun HomeScreen(navController: NavController, backStackEntry: NavBackStackEntry) 
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { pendingGroupDelete = null }) { Text("Cancel") } }
+        )
+    }
+
+    renamingGroup?.let { group ->
+        AlertDialog(
+            onDismissRequest = { renamingGroup = null },
+            title = { Text("Rename group") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text("Name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (renameText.isNotBlank()) {
+                        app.configRepository.upsertGroup(group.copy(name = renameText))
+                    }
+                    renamingGroup = null
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renamingGroup = null }) { Text("Cancel") }
+            }
         )
     }
 

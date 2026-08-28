@@ -8,8 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
@@ -35,22 +33,6 @@ fun SettingsScreen(navController: NavController) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
-            item {
-                ListItem(
-                    headlineContent = { Text("Discover Sensors") },
-                    supportingContent = { Text("Scan a broker's retained topics and auto-suggest sensor panels") },
-                    leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
-                    modifier = Modifier.clickable { navController.navigate("discover") }
-                )
-            }
-            item {
-                ListItem(
-                    headlineContent = { Text("Groups") },
-                    supportingContent = { Text("${config.groups.size} groups \u2013 rename or reorder them") },
-                    leadingContent = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                    modifier = Modifier.clickable { navController.navigate("groups") }
-                )
-            }
             item {
                 ListItem(
                     headlineContent = { Text("Brokers") },

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -63,6 +64,11 @@ fun BrokersScreen(navController: NavController) {
                 ListItem(
                     headlineContent = { Text(broker.name) },
                     supportingContent = { Text("${broker.host}:${broker.port} \u00b7 ${broker.protocol} \u00b7 $state") },
+                    trailingContent = {
+                        IconButton(onClick = { navController.navigate("discover/${broker.id}") }) {
+                            Icon(Icons.Default.Search, contentDescription = "Discover sensors on ${broker.name}")
+                        }
+                    },
                     modifier = Modifier.clickable { navController.navigate("broker/${broker.id}") }
                 )
                 HorizontalDivider()

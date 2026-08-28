@@ -26,7 +26,6 @@ import com.odiousapps.z2mdash.ui.screens.AlertSettingsScreen
 import com.odiousapps.z2mdash.ui.screens.BackupRestoreScreen
 import com.odiousapps.z2mdash.ui.screens.BrokersScreen
 import com.odiousapps.z2mdash.ui.screens.DiscoverScreen
-import com.odiousapps.z2mdash.ui.screens.GroupsScreen
 import com.odiousapps.z2mdash.ui.screens.MqttBackupScreen
 import com.odiousapps.z2mdash.ui.screens.HomeScreen
 import com.odiousapps.z2mdash.ui.screens.SettingsScreen
@@ -81,11 +80,9 @@ fun AppNavHost() {
             composable("alertSettings") { AlertSettingsScreen(navController) }
             composable("backupRestore") { BackupRestoreScreen(navController) }
             composable("brokers") { BrokersScreen(navController) }
-            composable("discover") { DiscoverScreen(navController) }
             composable("discover/{brokerId}") { entry ->
                 DiscoverScreen(navController, initialBrokerId = entry.arguments?.getString("brokerId"))
             }
-            composable("groups") { GroupsScreen(navController) }
             composable("mqttBackup") { MqttBackupScreen(navController) }
             composable("broker/{brokerId}") { entry ->
                 val id = entry.arguments?.getString("brokerId")
