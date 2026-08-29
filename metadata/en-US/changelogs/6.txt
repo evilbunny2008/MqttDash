@@ -1,0 +1,3 @@
+- Backup/restore via a retained MQTT message, with optional encryption using a broker's own password
+- Presence/occupancy sensor tiles
+- Illuminance sensor icon support

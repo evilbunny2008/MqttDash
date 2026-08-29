@@ -1,0 +1,5 @@
+- Smoke alerts: watches every MQTT payload for "smoke": true, no per-device setup needed
+- New Terminal screen: a live, filterable log of MQTT messages
+- Momentary button panels, e.g. for blind-motor STOP commands
+- Drag-to-reorder on the Groups screen
+- Removed the unused Scripts tab

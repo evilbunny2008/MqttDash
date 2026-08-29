@@ -1,6 +1,3 @@
-- Drag-and-drop reordering for groups, clusters, and panels, directly on the dashboard
-- Group renaming moved to the dashboard; the separate Groups screen is gone
-- New Alarm/Alert screen: toggles plus a test-notification button, custom sound
-- Backup & Restore has its own screen: brokers-only export/restore, optional encryption using a broker password
-- Settings reordered; sensor discovery launches per-broker now
+- New monochrome launcher icon (Android 13+ themed icons)
 - Manual reconnect button per broker
+- Custom smoke-alert notification sound, distinct from other system alerts

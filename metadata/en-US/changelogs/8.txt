@@ -1,0 +1,2 @@
+- Per-field decimal places for auto-configured sensor panels
+- Various small UI polish and code quality fixes
