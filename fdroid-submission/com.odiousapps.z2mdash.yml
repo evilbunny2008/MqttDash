@@ -17,6 +17,8 @@ Builds:
     versionCode: 14
     commit: 02f788fa3d42de66b75bc69279398f378575b664
     subdir: app
+    prebuild:
+      - echo 'android.dependenciesInfo { includeInApk = false; includeInBundle = false }' >> build.gradle.kts
     gradle:
       - yes
 
