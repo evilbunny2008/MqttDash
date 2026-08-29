@@ -17,10 +17,10 @@ Builds:
     versionCode: 14
     commit: 02f788fa3d42de66b75bc69279398f378575b664
     subdir: app
-    prebuild:
-      - echo 'android.dependenciesInfo { includeInApk = false; includeInBundle = false }' >> build.gradle.kts
     gradle:
       - yes
+    prebuild: echo 'android.dependenciesInfo { includeInApk = false; includeInBundle
+      = false }' >> build.gradle.kts
 
 AllowedAPKSigningKeys: 6e194e3a58ba968613afc235136f63fb845e8aa0d718e70925cac04a91c7c041
 
