@@ -11,14 +11,40 @@ RepoType: git
 Repo: https://github.com/evilbunny2008/Z2mDash.git
 
 Builds:
-  - versionName: 0.0.13
-    versionCode: 13
-    commit: 5838b26b4672a6a2bec65ebc99e23b13b63be167
+  - versionName: 0.0.14
+    versionCode: 14
+    commit: REPLACE_WITH_FULL_COMMIT_HASH_FOR_v0.0.14_TAG
     subdir: app
     gradle:
       - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.0.13
-CurrentVersionCode: 13
+CurrentVersion: 0.0.14
+CurrentVersionCode: 14
+
+# For reproducible-build verification: F-Droid builds from source itself,
+# then compares its own output against a binary you publish independently
+# (e.g. a GitHub Release), to confirm both are the same app. Fill in both
+# fields below once you have a real release to point at - see the comments
+# for how to get each value.
+#
+# Binaries: a URL template to your own signed release APK, with %v/%c as
+# placeholders F-Droid substitutes for versionName/versionCode. If you
+# publish to GitHub Releases tagged the same way as your commit tags
+# (e.g. v0.0.13) with the APK named the way this project's own
+# renameBundleRelease/APK-renaming Gradle logic already produces it
+# (Z2mDash-<versionName>.apk), this would look like:
+# Binaries: https://github.com/evilbunny2008/Z2mDash/releases/download/v%v/Z2mDash-%v.apk
+#
+# AllowedAPKSigningKeys: the SHA-256 fingerprint of the certificate you sign
+# your own releases with (not the keystore password or any other secret -
+# just a public fingerprint derived from the certificate, safe to commit).
+# Get it from an already-built, signed APK directly:
+#   apksigner verify --print-certs Z2mDash-0.0.13.apk
+# (look for the "Signer #1 certificate SHA-256 digest" line), or from the
+# keystore itself:
+#   keytool -list -v -keystore your-release-key.jks -alias your-key-alias
+# (look for "SHA256:" under Certificate fingerprints). Strip the colons so
+# it's one continuous hex string.
+# AllowedAPKSigningKeys: <sha256 fingerprint, colons removed>

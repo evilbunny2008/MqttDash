@@ -1,0 +1,4 @@
+- New monochrome launcher icon (Android 13+ themed icons)
+- Custom smoke-alert notification sound
+- Brokers-only backup files are now named to say so
+- Various under-the-hood code quality and reliability fixes
