@@ -13,18 +13,16 @@ Repo: https://github.com/evilbunny2008/Z2mDash.git
 Binaries: https://github.com/evilbunny2008/Z2mDash/releases/download/v%v/Z2mDash-%v.apk
 
 Builds:
-  - versionName: 0.0.14
-    versionCode: 14
-    commit: 02f788fa3d42de66b75bc69279398f378575b664
+  - versionName: 0.0.15
+    versionCode: 15
+    commit: REPLACE_WITH_FULL_COMMIT_HASH_FOR_v0.0.15_TAG
     subdir: app
     gradle:
       - yes
-    prebuild: sed -i -e '/^android {/a\    dependenciesInfo { includeInApk = false;
-      includeInBundle = false }' build.gradle.kts
 
 AllowedAPKSigningKeys: 6e194e3a58ba968613afc235136f63fb845e8aa0d718e70925cac04a91c7c041
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.0.14
-CurrentVersionCode: 14
+CurrentVersion: 0.0.15
+CurrentVersionCode: 15

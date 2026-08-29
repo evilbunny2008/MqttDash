@@ -18,12 +18,24 @@ android {
     namespace = "com.odiousapps.z2mdash"
     compileSdk = 37
 
+    // Disables the "Dependency metadata" signing block AGP embeds by
+    // default for Google Play Console's own dependency tracking. This has
+    // to live directly in source (not just an F-Droid prebuild step),
+    // since F-Droid's reproducible-build verification also scans whatever
+    // binary is published at the Binaries: URL - the same GitHub Release
+    // APK this repo's own build produces - so that artifact needs this
+    // disabled too, not just what F-Droid builds from source itself.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     defaultConfig {
         applicationId = "com.odiousapps.z2mdash"
         minSdk = 26
         targetSdk = 37
-        versionCode = 14
-        versionName = "0.0.14"
+        versionCode = 15
+        versionName = "0.0.15"
     }
 
     buildTypes {
