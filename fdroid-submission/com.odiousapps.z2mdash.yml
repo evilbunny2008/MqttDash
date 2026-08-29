@@ -15,7 +15,7 @@ Binaries: https://github.com/evilbunny2008/Z2mDash/releases/download/v%v/Z2mDash
 Builds:
   - versionName: 0.0.15
     versionCode: 15
-    commit: REPLACE_WITH_FULL_COMMIT_HASH_FOR_v0.0.15_TAG
+    commit: 497f464bdcbe572778009acc6741c5ad35f34f2a
     subdir: app
     gradle:
       - yes
