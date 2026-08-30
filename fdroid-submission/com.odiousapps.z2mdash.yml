@@ -13,9 +13,9 @@ Repo: https://github.com/evilbunny2008/Z2mDash.git
 Binaries: https://github.com/evilbunny2008/Z2mDash/releases/download/v%v/Z2mDash-%v.apk
 
 Builds:
-  - versionName: 0.0.15
-    versionCode: 15
-    commit: 497f464bdcbe572778009acc6741c5ad35f34f2a
+  - versionName: 0.0.16
+    versionCode: 16
+    commit: 
     subdir: app
     gradle:
       - yes
@@ -24,5 +24,5 @@ AllowedAPKSigningKeys: 6e194e3a58ba968613afc235136f63fb845e8aa0d718e70925cac04a9
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.0.15
-CurrentVersionCode: 15
+CurrentVersion: 0.0.16
+CurrentVersionCode: 16
