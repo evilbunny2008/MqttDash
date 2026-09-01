@@ -60,7 +60,7 @@ sealed class Panel {
         val jsonPath: String = "",
         val unit: String = "",
         val icon: TileIcon = TileIcon.GAUGE,
-        val decimals: Int = 1,
+        val decimals: Int = 0,
         // Optional companion topic publishing the ideal range (retained). When set,
         // the tile flashes red below min / green within / blue above max. Defaults
         // to a topic shaped {"min":x,"max":y}; idealMinPath/idealMaxPath let it
@@ -168,5 +168,12 @@ data class AppConfig(
     // detector wasn't explicitly added as a panel. Defaults to on, given the
     // safety purpose.
     val smokeAlertsEnabled: Boolean = true,
-    val smokeAlertSoundEnabled: Boolean = true
+    val smokeAlertSoundEnabled: Boolean = true,
+    // Tracks whether the one-time migration (see ConfigRepository.load) that
+    // updates existing sensor panels still sitting on the old, uniform "1
+    // decimal place for everything" default over to the new field-aware
+    // default has already run - without this flag, the migration would
+    // re-apply on every app launch and silently overwrite a deliberate
+    // later choice of "1" on a non-temperature field.
+    val decimalsMigrationApplied: Boolean = false
 )

@@ -1,1 +1,2 @@
-Added metadata/en-US/images/icon.png
+- Sensor tiles now default to whole numbers (0 decimal places) instead of 1, except temperature fields, which still default to 1 decimal place
+- Added a proper store-listing icon

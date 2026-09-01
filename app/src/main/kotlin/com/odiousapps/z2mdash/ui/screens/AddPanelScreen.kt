@@ -91,7 +91,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
     var jsonPath by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.jsonPath ?: "") }
     var unit by remember(existing) { mutableStateOf((existing as? Panel.Sensor)?.unit ?: "") }
     var decimalsText by remember(existing) {
-        mutableStateOf(((existing as? Panel.Sensor)?.decimals ?: 1).toString())
+        mutableStateOf(((existing as? Panel.Sensor)?.decimals ?: 0).toString())
     }
     var idealRangeTopic by remember(existing) {
         mutableStateOf((existing as? Panel.Sensor)?.idealRangeTopic ?: "")
@@ -149,7 +149,7 @@ fun AddPanelScreen(navController: NavController, groupId: String, panelId: Strin
                                 idealMaxPath = idealMaxPath,
                                 clusterName = clusterName,
                                 displayOrder = displayOrderValue,
-                                decimals = decimalsText.toIntOrNull() ?: 1
+                                decimals = decimalsText.toIntOrNull() ?: 0
                             )
                             "Toggle" -> Panel.Toggle(
                                 id = existing?.id ?: UUID.randomUUID().toString(),

@@ -26,10 +26,39 @@ class ConfigRepository(private val context: Context) {
     val config: StateFlow<AppConfig> = _config
 
     private fun load(): AppConfig = try {
-        if (file.exists()) json.decodeFromString(AppConfig.serializer(), file.readText())
-        else AppConfig()
+        val loaded = if (file.exists()) json.decodeFromString(AppConfig.serializer(), file.readText())
+            else AppConfig()
+        migrateDecimalsIfNeeded(loaded)
     } catch (_: Exception) {
         AppConfig()
+    }
+
+    /**
+     * One-time migration for sensor panels created before the decimal-places
+     * default became field-aware (temperature: 1, everything else: 0) - any
+     * existing panel still sitting on the old, uniform default of 1 gets
+     * moved over to whatever SensorDiscovery.suggestedDecimals now says for
+     * its field, so already-configured tiles benefit from the new default
+     * too rather than only new panels going forward. Guarded by
+     * decimalsMigrationApplied so this only ever runs once: without it, a
+     * later deliberate choice of "1" on a non-temperature field would get
+     * silently reverted on every subsequent app launch.
+     */
+    private fun migrateDecimalsIfNeeded(config: AppConfig): AppConfig {
+        if (config.decimalsMigrationApplied) return config
+        val migratedGroups = config.groups.map { group ->
+            group.copy(panels = group.panels.map { panel ->
+                if (panel is Panel.Sensor && panel.decimals == 1) {
+                    val suggested = SensorDiscovery.suggestedDecimals(panel.jsonPath)
+                    if (suggested != panel.decimals) panel.copy(decimals = suggested) else panel
+                } else {
+                    panel
+                }
+            })
+        }
+        val migrated = config.copy(groups = migratedGroups, decimalsMigrationApplied = true)
+        persist(migrated)
+        return migrated
     }
 
     private fun persist(config: AppConfig) {

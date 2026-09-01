@@ -368,7 +368,7 @@ object SensorDiscovery {
                 idealMaxPath = rangeBase?.let { deviceConfig.rangePairs[it]!!.second } ?: "max",
                 clusterName = clusterName,
                 displayOrder = deviceConfig.panelOrders.getOrNull(index) ?: deviceConfig.groupOrder ?: Int.MAX_VALUE,
-                decimals = deviceConfig.panelDecimals.getOrNull(index) ?: 1
+                decimals = deviceConfig.panelDecimals.getOrNull(index) ?: suggestedDecimals(field)
             )
         }
 
@@ -421,5 +421,11 @@ object SensorDiscovery {
         key.contains("battery", ignoreCase = true) -> "%"
         key.contains("illuminance", ignoreCase = true) -> "lx"
         else -> ""
+    }
+
+    /** Default decimal places for a field when the device's own "/app" config doesn't specify one via panel_decimals - temperature benefits from a decimal (e.g. "21.5"), everything else defaults to whole numbers. */
+    fun suggestedDecimals(key: String): Int = when {
+        key.contains("temperature", ignoreCase = true) -> 1
+        else -> 0
     }
 }
