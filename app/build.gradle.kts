@@ -16,7 +16,13 @@ plugins {
 
 android {
     namespace = "com.odiousapps.z2mdash"
-    compileSdk = 37
+    compileSdk {
+        version = release(37)
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     // Disables the "Dependency metadata" signing block AGP embeds by
     // default for Google Play Console's own dependency tracking. This has
@@ -34,8 +40,8 @@ android {
         applicationId = "com.odiousapps.z2mdash"
         minSdk = 26
         targetSdk = 37
-        versionCode = 16
-        versionName = "0.0.16"
+        versionCode = 17
+        versionName = "0.0.17"
     }
 
     buildTypes {

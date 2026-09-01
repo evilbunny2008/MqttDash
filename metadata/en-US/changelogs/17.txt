@@ -1,0 +1,2 @@
+- Backup encryption now prompts for a dedicated password of your choosing, instead of using a broker's own password - it's remembered for next time
+- Encryption is now available for brokers-only exports too, not just full configuration backups
