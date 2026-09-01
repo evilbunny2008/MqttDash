@@ -19,11 +19,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -67,10 +63,14 @@ fun BackupRestoreScreen(navController: NavController) {
     var exportScope by remember { mutableStateOf("Full") } // "Full" or "BrokersOnly"
     var importScope by remember { mutableStateOf("Full") } // "Full" or "BrokersOnly"
     var encryptEnabled by remember { mutableStateOf(false) }
-    var encryptBrokerId by remember(config.brokers) {
-        mutableStateOf(config.brokers.firstOrNull()?.id ?: "")
-    }
-    var encryptBrokerExpanded by remember { mutableStateOf(false) }
+
+    // Shown when the user taps Export with encryption enabled, before the
+    // file picker launches - exportPasswordText is the dialog's live input,
+    // pendingExportPassword is the confirmed value the exportLauncher
+    // callback below actually uses once the file destination is chosen.
+    var showExportPasswordDialog by remember { mutableStateOf(false) }
+    var exportPasswordText by remember { mutableStateOf("") }
+    var pendingExportPassword by remember { mutableStateOf<String?>(null) }
 
     // Set once a picked file turns out to be encrypted - holds the raw file
     // bytes until the user enters a password, since decryption (and the
@@ -127,16 +127,14 @@ fun BackupRestoreScreen(navController: NavController) {
                 app.configRepository.exportJson()
             }
             val compressed = BackupCodec.compress(json)
-            val password = config.brokers.find { it.id == encryptBrokerId }?.password.orEmpty()
-            // Falls through to unencrypted if the selected broker has no
-            // password set - nothing sensitive to protect in that case, so
-            // there's no need to flag it.
-            val output = if (encryptEnabled && exportScope == "Full" && password.isNotBlank()) {
+            val password = pendingExportPassword
+            val output = if (encryptEnabled && !password.isNullOrBlank()) {
                 BackupCodec.encrypt(compressed, password)
             } else {
                 compressed
             }
             context.contentResolver.openOutputStream(it, "wt")?.use { out -> out.write(output) }
+            pendingExportPassword = null
             snackbarMessage = "Configuration exported"
         }
     }
@@ -188,47 +186,16 @@ fun BackupRestoreScreen(navController: NavController) {
                             shape = SegmentedButtonDefaults.itemShape(1, 2)
                         ) { Text("Brokers Only") }
                     }
-                    if (exportScope == "Full") {
-                        ListItem(
-                            headlineContent = { Text("Encrypt Backup") },
-                            supportingContent = { Text("Protect the exported file with a broker's own password") },
-                            trailingContent = {
-                                Switch(
-                                    checked = encryptEnabled,
-                                    enabled = config.brokers.isNotEmpty(),
-                                    onCheckedChange = { encryptEnabled = it }
-                                )
-                            }
-                        )
-                        if (encryptEnabled && config.brokers.size > 1) {
-                            val selectedBrokerName = config.brokers.find { it.id == encryptBrokerId }?.name ?: ""
-                            ExposedDropdownMenuBox(
-                                expanded = encryptBrokerExpanded,
-                                onExpandedChange = { encryptBrokerExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    readOnly = true,
-                                    value = selectedBrokerName,
-                                    onValueChange = {},
-                                    label = { Text("Encrypt using this broker's password") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = encryptBrokerExpanded) },
-                                    modifier = Modifier.fillMaxWidth()
-                                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = encryptBrokerExpanded,
-                                    onDismissRequest = { encryptBrokerExpanded = false }
-                                ) {
-                                    config.brokers.forEach { b ->
-                                        DropdownMenuItem(text = { Text(b.name) }, onClick = {
-                                            encryptBrokerId = b.id
-                                            encryptBrokerExpanded = false
-                                        })
-                                    }
-                                }
-                            }
+                    ListItem(
+                        headlineContent = { Text("Encrypt Backup") },
+                        supportingContent = { Text("Protect the exported file with a password you choose") },
+                        trailingContent = {
+                            Switch(
+                                checked = encryptEnabled,
+                                onCheckedChange = { encryptEnabled = it }
+                            )
                         }
-                    }
+                    )
                     Spacer(Modifier.height(8.dp))
                     ListItem(
                         headlineContent = { Text("Export Configuration") },
@@ -243,10 +210,15 @@ fun BackupRestoreScreen(navController: NavController) {
                         },
                         leadingContent = { Icon(Icons.Default.Backup, contentDescription = null) },
                         modifier = Modifier.clickable {
-                            try {
-                                exportLauncher.launch(BackupCodec.newBackupFileName(brokersOnly = exportScope == "BrokersOnly"))
-                            } catch (_: ActivityNotFoundException) {
-                                snackbarMessage = "No file picker app is available on this device."
+                            if (encryptEnabled) {
+                                exportPasswordText = config.rememberedExportPassword.orEmpty()
+                                showExportPasswordDialog = true
+                            } else {
+                                try {
+                                    exportLauncher.launch(BackupCodec.newBackupFileName(brokersOnly = exportScope == "BrokersOnly"))
+                                } catch (_: ActivityNotFoundException) {
+                                    snackbarMessage = "No file picker app is available on this device."
+                                }
                             }
                         }
                     )
@@ -309,6 +281,44 @@ fun BackupRestoreScreen(navController: NavController) {
                 )
             }
         }
+    }
+
+    if (showExportPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportPasswordDialog = false },
+            title = { Text("Set Export Password") },
+            text = {
+                Column {
+                    Text("Choose a password to encrypt this backup with. It's remembered for next time - you'll need it again to restore.")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = exportPasswordText,
+                        onValueChange = { exportPasswordText = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingExportPassword = exportPasswordText
+                        app.configRepository.update { it.copy(rememberedExportPassword = exportPasswordText) }
+                        showExportPasswordDialog = false
+                        try {
+                            exportLauncher.launch(BackupCodec.newBackupFileName(brokersOnly = exportScope == "BrokersOnly"))
+                        } catch (_: ActivityNotFoundException) {
+                            snackbarMessage = "No file picker app is available on this device."
+                        }
+                    },
+                    enabled = exportPasswordText.isNotBlank()
+                ) { Text("Continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportPasswordDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     val encryptedBytes = pendingEncryptedBytes

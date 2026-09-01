@@ -175,5 +175,11 @@ data class AppConfig(
     // default has already run - without this flag, the migration would
     // re-apply on every app launch and silently overwrite a deliberate
     // later choice of "1" on a non-temperature field.
-    val decimalsMigrationApplied: Boolean = false
+    val decimalsMigrationApplied: Boolean = false,
+    // Remembered so the export password dialog can be pre-filled next time,
+    // rather than asking fresh on every export. Stored in plaintext, same as
+    // broker passwords elsewhere in this same config file - anyone with
+    // access to the app's own private storage could already read those, so
+    // this doesn't meaningfully change the app's existing threat model.
+    val rememberedExportPassword: String? = null
 )
